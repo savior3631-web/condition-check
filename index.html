@@ -10,9 +10,9 @@
   --bg:#F7F4F4; --surface:#FFFFFF; --surface-2:#F0EAEB;
   --ink:#1A1416; --ink-2:#5C5054; --ink-3:#7E7276;
   --line:#E3DBDC; --grid:#EDE6E7;
-  --accent:#EA002C; --accent-ink:#FFFFFF; --accent-soft:#FDE6EA;
-  --sk-orange:#FAA61A;
-  --ok:#0F7A57; --ok-soft:#E2F2EC; --warn:#8F5200; --warn-soft:#FBF0DF;
+  --accent:#EA002C; --accent-ink:#FFFFFF;
+  --sk-orange:#FAA61A; --orange-ink:#8F5200; --orange-soft:#FBF0DF;
+  --ok:#0F7A57; --ok-soft:#E2F2EC;
   --shadow:0 1px 2px rgba(26,20,22,.06),0 6px 18px rgba(26,20,22,.06);
   color-scheme:light;
 }
@@ -21,9 +21,9 @@
     --bg:#151011; --surface:#1E1719; --surface-2:#281F21;
     --ink:#F2EAEC; --ink-2:#B7A9AD; --ink-3:#8E8085;
     --line:#362B2E; --grid:#2B2224;
-    --accent:#FF5470; --accent-ink:#2A0008; --accent-soft:#3B1119;
-    --sk-orange:#FFBC4D;
-    --ok:#3FCFA0; --ok-soft:#10322A; --warn:#E8A93C; --warn-soft:#37280F;
+    --accent:#FF5470; --accent-ink:#2A0008;
+    --sk-orange:#FFBC4D; --orange-ink:#FFBC4D; --orange-soft:#37280F;
+    --ok:#3FCFA0; --ok-soft:#10322A;
     --shadow:0 1px 2px rgba(0,0,0,.45),0 6px 18px rgba(0,0,0,.35);
     color-scheme:dark;
   }
@@ -32,9 +32,9 @@
   --bg:#151011; --surface:#1E1719; --surface-2:#281F21;
   --ink:#F2EAEC; --ink-2:#B7A9AD; --ink-3:#8E8085;
   --line:#362B2E; --grid:#2B2224;
-  --accent:#FF5470; --accent-ink:#2A0008; --accent-soft:#3B1119;
-  --sk-orange:#FFBC4D;
-  --ok:#3FCFA0; --ok-soft:#10322A; --warn:#E8A93C; --warn-soft:#37280F;
+  --accent:#FF5470; --accent-ink:#2A0008;
+  --sk-orange:#FFBC4D; --orange-ink:#FFBC4D; --orange-soft:#37280F;
+  --ok:#3FCFA0; --ok-soft:#10322A;
   --shadow:0 1px 2px rgba(0,0,0,.45),0 6px 18px rgba(0,0,0,.35);
   color-scheme:dark;
 }
@@ -50,37 +50,49 @@ body{
 .wrap{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
 h1{font-size:18px;margin:0;letter-spacing:-.02em;font-weight:800}
 p{margin:0}
-
 .head{display:flex;gap:8px;align-items:center;justify-content:space-between}
 .brand{display:flex;align-items:center;gap:9px;min-width:0}
 .wing{width:22px;height:22px;flex:none}
 .badge{font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:999px;
   background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line);white-space:nowrap}
-
-.warnbar{background:var(--warn-soft);border:1px solid var(--sk-orange);color:var(--warn);
+.warnbar{background:var(--orange-soft);border:1px solid var(--sk-orange);color:var(--orange-ink);
   border-radius:11px;padding:10px 12px;font-size:13px;line-height:1.55}
-.warnbar b{font-weight:700}
-
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:11px;box-shadow:var(--shadow)}
 
 .tabs{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:var(--surface-2);
-  border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:9px}
+  border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:8px}
 .tabs button{border:0;background:transparent;color:var(--ink-2);font-size:14.5px;font-weight:700;
   padding:9px 4px;border-radius:8px}
 .tabs button.on{background:var(--accent);color:var(--accent-ink)}
 
-.chips{display:flex;gap:5px;margin-bottom:8px}
+.chips{display:flex;gap:5px;margin-bottom:7px}
 .chips button{flex:1;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);
   font-size:12.5px;font-weight:700;padding:7px 3px;border-radius:8px}
 .chips button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 input#who{width:100%;border:1px solid var(--line);background:var(--surface);color:var(--ink);
-  font:inherit;font-size:13px;padding:8px 11px;border-radius:9px;margin-bottom:8px}
+  font:inherit;font-size:13px;padding:8px 11px;border-radius:9px}
 input#who:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
-.stagewrap{display:flex;justify-content:center}
+.optrow{display:flex;align-items:center;gap:7px;margin:7px 1px;font-size:12px;color:var(--ink-2)}
+.optrow input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
+.optrow label{flex:1}
+.linkbtn{background:none;border:0;color:var(--ink-3);font-size:11.5px;font-weight:700;
+  text-decoration:underline;padding:2px 0;cursor:pointer}
+
+.selfbox{margin-bottom:8px;border:1px solid var(--line);border-radius:11px;background:var(--surface)}
+.selfbox summary{padding:9px 11px;font-size:13px;font-weight:700}
+.selfstat{font-size:11.5px;font-weight:700;color:var(--ink-3)}
+.selfstat.done{color:var(--ok)}
+.qrow{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.qrow>b{width:44px;flex:none;font-size:11.5px;color:var(--ink-3);font-weight:700}
+.opts{display:flex;gap:4px;flex:1}
+.opts button{flex:1;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);
+  font-size:11.5px;font-weight:700;padding:6px 2px;border-radius:7px}
+.opts button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+.stagewrap{display:flex;justify-content:center;margin-top:2px}
 .stage{position:relative;border-radius:12px;overflow:hidden;background:#0A0708;
-  width:min(100%, calc(46vh * var(--arn, .75)));
-  aspect-ratio:var(--ar, 3/4);}
+  width:min(100%, calc(42vh * var(--arn, .75))); aspect-ratio:var(--ar, 3/4);}
 video{width:100%;height:100%;object-fit:contain;display:block;background:#0A0708}
 video.mirror{transform:scaleX(-1)}
 .guide{position:absolute;inset:0;pointer-events:none}
@@ -100,10 +112,12 @@ video.mirror{transform:scaleX(-1)}
   text-shadow:0 2px 16px rgba(0,0,0,.7)}
 .bigcount.on{display:flex}
 
-.readout{display:flex;align-items:baseline;gap:8px;margin-top:10px}
-.bpm{font-size:46px;line-height:1;font-weight:800;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
+.readout{display:flex;align-items:baseline;gap:8px;margin-top:9px}
+.bpm{font-size:44px;line-height:1;font-weight:800;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
 .bpm.idle{color:var(--ink-3)}
 .unit{font-size:12.5px;font-weight:700;color:var(--ink-3)}
+.dev{font-size:12px;font-weight:700;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.dev.hi{color:var(--orange-ink)}
 .heart{width:11px;height:11px;border-radius:50%;background:var(--accent);opacity:.2;align-self:center}
 .heart.beat{opacity:1;transform:scale(1.5);transition:transform .09s,opacity .09s}
 @media (prefers-reduced-motion:reduce){.heart.beat{transform:none}}
@@ -112,7 +126,7 @@ video.mirror{transform:scaleX(-1)}
 .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
   border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:8px}
 .metric{background:var(--surface);padding:7px 7px 8px}
-.metric dt{font-size:9.5px;letter-spacing:.02em;color:var(--ink-3);font-weight:700;margin:0;line-height:1.3}
+.metric dt{font-size:9.5px;color:var(--ink-3);font-weight:700;margin:0;line-height:1.3}
 .metric dd{margin:2px 0 0;font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .metric dd small{font-size:9.5px;font-weight:700;color:var(--ink-3);margin-left:2px}
 .metric dd.na{color:var(--ink-3);font-size:15px}
@@ -121,9 +135,8 @@ video.mirror{transform:scaleX(-1)}
 .meter i{display:block;height:100%;width:0;background:var(--ok);border-radius:4px;transition:width .3s}
 .meter i.low{background:var(--accent)}
 .meter i.mid{background:var(--sk-orange)}
-
 .wavewrap{margin-top:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);overflow:hidden}
-canvas#wave{display:block;width:100%;height:52px}
+canvas#wave{display:block;width:100%;height:50px}
 
 .controls{display:flex;gap:6px;margin-top:9px}
 button{font:inherit;font-weight:700;font-size:15px;cursor:pointer;padding:12px 14px;border-radius:11px;
@@ -132,7 +145,7 @@ button:disabled{opacity:.42}
 button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .status{margin-top:7px;font-size:12.5px;line-height:1.5;color:var(--ink-2);min-height:2.4em}
-.status.warn{color:var(--warn)}
+.status.warn{color:var(--orange-ink)}
 .status.crit{color:var(--accent)}
 
 #cardPanel img{width:100%;height:auto;display:block;border-radius:11px;border:1px solid var(--line)}
@@ -141,20 +154,23 @@ a.btn button{width:100%}
 .cardnote{font-size:12px;color:var(--ink-3);margin-top:8px}
 
 details{background:var(--surface);border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow)}
+details.selfbox{box-shadow:none;border-radius:11px}
 summary{padding:12px 13px;font-size:14px;font-weight:700;cursor:pointer;list-style:none;
-  display:flex;justify-content:space-between;align-items:center}
+  display:flex;justify-content:space-between;align-items:center;gap:8px}
 summary::-webkit-details-marker{display:none}
 summary::after{content:"▾";color:var(--ink-3);font-size:12px}
 details[open] summary::after{content:"▴"}
-.dbody{padding:0 13px 13px}
+.dbody{padding:0 11px 11px}
+details:not(.selfbox) .dbody{padding:0 13px 13px}
 
 table{width:100%;border-collapse:collapse;font-size:12.5px}
 th,td{text-align:left;padding:7px 5px;border-bottom:1px solid var(--line);white-space:nowrap}
-th{font-size:10px;letter-spacing:.04em;color:var(--ink-3);font-weight:700}
+th{font-size:10px;color:var(--ink-3);font-weight:700}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px}
 .tag.ok{background:var(--ok-soft);color:var(--ok)}
-.tag.re{background:var(--warn-soft);color:var(--warn)}
+.tag.mid{background:var(--orange-soft);color:var(--orange-ink)}
+.tag.bad{background:var(--orange-soft);color:var(--accent)}
 .empty{color:var(--ink-3);font-size:13px;padding:8px 2px}
 .tablewrap{overflow-x:auto}
 
@@ -194,10 +210,33 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     <div class="chips">
       <button type="button" id="segF" class="on">이마</button>
       <button type="button" id="segC">양 볼·안전모</button>
-      <button type="button" id="seg15" class="on">15초</button>
+    </div>
+    <div class="chips">
+      <button type="button" id="seg5" class="on">5초</button>
+      <button type="button" id="seg15">15초</button>
       <button type="button" id="seg30">30초 정밀</button>
     </div>
-    <input id="who" type="text" placeholder="이름 또는 사번 (선택 — 결과 카드에 표시)" autocomplete="off">
+
+    <input id="who" type="text" placeholder="이름 또는 사번 (선택)" autocomplete="off">
+    <div class="optrow">
+      <input type="checkbox" id="optBase">
+      <label for="optBase">평소 대비 비교 — 측정값을 이 폰에만 저장</label>
+      <button type="button" class="linkbtn" id="clearBase">삭제</button>
+    </div>
+
+    <details class="selfbox" id="selfWrap">
+      <summary><span>작업 전 자가 체크</span><span class="selfstat" id="selfStat">미입력</span></summary>
+      <div class="dbody">
+        <div class="qrow"><b>수면</b><div class="opts" data-q="sleep">
+          <button type="button" data-v="0">충분</button><button type="button" data-v="2">6시간 미만</button></div></div>
+        <div class="qrow"><b>음주</b><div class="opts" data-q="drink">
+          <button type="button" data-v="0">없음</button><button type="button" data-v="2">전날 음주</button></div></div>
+        <div class="qrow"><b>복약</b><div class="opts" data-q="med">
+          <button type="button" data-v="0">없음</button><button type="button" data-v="1">복용 중</button></div></div>
+        <div class="qrow"><b>컨디션</b><div class="opts" data-q="cond">
+          <button type="button" data-v="0">좋음</button><button type="button" data-v="1">보통</button><button type="button" data-v="3">나쁨</button></div></div>
+      </div>
+    </details>
 
     <div class="stagewrap">
       <div class="stage" id="stage">
@@ -217,13 +256,14 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
           <div class="live"><i></i><span id="liveTxt">0.0초</span></div>
         </div>
         <div class="camoff" id="camoff"><div>카메라가 꺼져 있습니다.<br><b>카메라 켜기</b>를 누르면 권한을 묻습니다.</div></div>
-        <div class="bigcount" id="bigCount">15</div>
+        <div class="bigcount" id="bigCount">5</div>
       </div>
     </div>
 
     <div class="readout">
       <span class="bpm idle" id="bpm">--</span>
       <span class="unit">BPM</span>
+      <span class="dev" id="dev" hidden></span>
       <span class="heart" id="heart" aria-hidden="true"></span>
       <span class="qnum" id="qtext">대기 중</span>
     </div>
@@ -233,7 +273,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       <div class="metric"><dt>긴장도</dt><dd class="na" id="mStress">—</dd></div>
     </dl>
     <div class="meter"><i id="qbar"></i></div>
-    <div class="wavewrap"><canvas id="wave" width="900" height="104" aria-label="맥파 파형"></canvas></div>
+    <div class="wavewrap"><canvas id="wave" width="900" height="100" aria-label="맥파 파형"></canvas></div>
 
     <div class="controls">
       <button id="btnStart" class="primary" style="flex:1">카메라 켜기</button>
@@ -257,7 +297,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     <div class="dbody">
       <div class="tablewrap">
         <table>
-          <thead><tr><th>시각</th><th>대상</th><th>방식</th><th class="num">심박</th><th class="num">호흡</th><th>판정</th></tr></thead>
+          <thead><tr><th>시각</th><th>대상</th><th>방식</th><th class="num">심박</th><th class="num">평소대비</th><th>판정</th></tr></thead>
           <tbody id="log"></tbody>
         </table>
       </div>
@@ -269,19 +309,27 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     <summary>읽는 법 · 한계</summary>
     <div class="dbody">
       <div class="note">
-        <h3>얼굴 측정</h3>
+        <h3>측정 시간</h3>
         <ul>
-          <li>전면 카메라로 피부색의 미세한 변화를 읽습니다. 아무것도 안 만지고 15초.</li>
-          <li><b>안전모를 쓴 채로도</b> 됩니다 — 이마가 가려지면 <b>양 볼</b>로 바꾸세요.</li>
-          <li>야외 직사광은 조도가 흔들려 값이 튑니다. 그늘·실내·차량 안이 낫습니다.</li>
+          <li><b>5초</b> — 심박수 기준 평균오차 1 bpm. 일상 체크에 충분합니다.</li>
+          <li>카메라를 켜둔 동안 신호가 계속 쌓이므로, 5초를 눌러도 <b>직전 구간까지 합쳐 분석</b>합니다. 그래서 호흡수·HRV도 대부분 함께 나옵니다.</li>
+          <li><b>30초</b>는 HRV와 불규칙 맥 판정이 필요할 때 쓰세요.</li>
         </ul>
       </div>
       <div class="note">
-        <h3>손가락 측정 — 더 정확합니다</h3>
+        <h3>평소 대비 비교</h3>
         <ul>
-          <li>후면 카메라에 손끝을 얹고 플래시를 켠 채로 잽니다. 병원 손가락 집게와 같은 원리.</li>
-          <li>신호가 강해 <b>HRV를 믿을 수 있습니다.</b> 30초로 재면 더 정확합니다.</li>
-          <li>렌즈를 <b>살짝 덮는 정도</b>로. 세게 누르면 피가 안 통해 신호가 사라집니다.</li>
+          <li>같은 이름으로 3회 이상 재면 <b>본인 평소값</b>이 잡히고, 이후 "평소 +14" 로 표시됩니다.</li>
+          <li>절대 기준(50~110)보다 훨씬 민감합니다. 평소 55인 사람의 75는 정상 범위지만 본인에겐 이상 신호입니다.</li>
+          <li>저장은 <b>이 폰 이 브라우저 안에만</b> 됩니다. 서버로 가지 않고, 삭제 버튼으로 언제든 지웁니다.</li>
+        </ul>
+      </div>
+      <div class="note">
+        <h3>얼굴 · 손가락</h3>
+        <ul>
+          <li><b>안전모를 쓴 채로도</b> 됩니다 — 이마가 가려지면 <b>양 볼</b>로 바꾸세요.</li>
+          <li>손가락은 신호가 강해 HRV를 믿을 수 있습니다. 렌즈를 <b>살짝 덮는 정도</b>로.</li>
+          <li>야외 직사광은 조도가 흔들려 값이 튑니다. 그늘·실내·차량 안이 낫습니다.</li>
         </ul>
       </div>
       <div class="note">
@@ -289,7 +337,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
         <ul>
           <li><b>의료기기가 아닙니다.</b> 진단용이 아니라 "평소와 다른가"를 보는 선별 도구입니다.</li>
           <li><b>체온·혈압·산소포화도는 측정되지 않습니다.</b> 센서가 없어 원리상 불가합니다.</li>
-          <li>15초 측정의 RMSSD는 참고값입니다. 정식 HRV는 최소 1분이 필요합니다.</li>
+          <li>불규칙 맥 표시는 <b>손가락 30초</b>에서만 나오며, 진단이 아니라 진료 권유 신호입니다.</li>
           <li>영상과 측정값은 <b>기기 밖으로 전송되지 않습니다.</b></li>
         </ul>
       </div>
@@ -298,7 +346,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
 
   <footer>
     얼굴: POS 알고리즘으로 맥파 분리 후 주파수 분석 · 손가락: 적색 채널 흡광 변화 직접 이용.
-    42–180 BPM 대역에서 심박수, 8–30회/분 대역에서 호흡수를 추정하고 맥파 피크 간격으로 RMSSD를 산출합니다.
+    42–180 BPM 대역에서 심박수, 8–30회/분 대역에서 호흡수를 추정하고, 맥파 피크 간격에서 RMSSD와 박동 규칙성을 산출합니다.
   </footer>
 </div>
 
@@ -308,12 +356,14 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   var $=function(id){return document.getElementById(id);};
   var video=$('cam'), stage=$('stage'), guide=$('guide'), camoff=$('camoff'), oval=$('oval'),
       tabFace=$('tabFace'), tabFinger=$('tabFinger'),
-      segF=$('segF'), segC=$('segC'), seg15=$('seg15'), seg30=$('seg30'),
+      segF=$('segF'), segC=$('segC'), seg5=$('seg5'), seg15=$('seg15'), seg30=$('seg30'),
       roiF=$('roiF'), roiC=$('roiC'), roiFinger=$('roiFinger'),
       btnStart=$('btnStart'), btnMeasure=$('btnMeasure'), btnStop=$('btnStop'),
       btnAgain=$('btnAgain'), btnSave=$('btnSave'), who=$('who'),
+      optBase=$('optBase'), clearBase=$('clearBase'),
+      selfWrap=$('selfWrap'), selfStat=$('selfStat'),
       statusEl=$('status'), bigCount=$('bigCount'),
-      bpmEl=$('bpm'), heartEl=$('heart'), qbar=$('qbar'), qtext=$('qtext'),
+      bpmEl=$('bpm'), devEl=$('dev'), heartEl=$('heart'), qbar=$('qbar'), qtext=$('qtext'),
       mRpm=$('mRpm'), mHrv=$('mHrv'), mStress=$('mStress'),
       waveCv=$('wave'), liveTxt=$('liveTxt'),
       logEl=$('log'), logEmpty=$('logEmpty'), logWrap=$('logWrap'),
@@ -330,12 +380,13 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     finger:  {rects:[[0.30,0.36,0.40,0.28]], label:'손끝'}
   };
 
-  var mode='face', roiMode='forehead', DUR=15;
+  var mode='face', roiMode='forehead', DUR=5;
   var stream=null, track=null, torchOn=false, wake=null;
   var running=false, buf=[], lastSample=0, raf=0;
   var bpmHist=[], curve=null, quality=0, satWarn=false;
   var measuring=false, measureEnd=0, measureStartT=0;
   var lastEstimate=0, lastBeat=0, lastDraw=0;
+  var SELF={sleep:null,drink:null,med:null,cond:null};
 
   function setStatus(m,c){ statusEl.textContent=m; statusEl.className='status'+(c?' '+c:''); }
   function tok(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
@@ -343,7 +394,67 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
 
   if(!window.isSecureContext) httpsWarn.hidden=false;
 
-  /* the stage takes the camera's real aspect ratio, so nothing is cropped */
+  /* ---------- personal baseline (this browser only) ---------- */
+  var LSK='cc_baseline_v1';
+  function lsGet(){ try{ return JSON.parse(localStorage.getItem(LSK)||'{}'); }catch(e){ return {}; } }
+  function lsSet(o){ try{ localStorage.setItem(LSK, JSON.stringify(o)); }catch(e){} }
+  function baselineFor(name){
+    if(!name) return null;
+    var db=lsGet();
+    if(!db.consent) return null;
+    var a=(db.people||{})[name];
+    if(!a||!a.hr||a.hr.length<3) return null;
+    var s=a.hr.slice().sort(function(x,y){return x-y;});
+    return {hr:s[Math.floor(s.length/2)], n:a.hr.length};
+  }
+  function pushBaseline(name,bpm){
+    if(!name) return;
+    var db=lsGet();
+    if(!db.consent) return;
+    db.people=db.people||{};
+    var a=db.people[name]||{hr:[]};
+    a.hr.push(bpm); if(a.hr.length>12) a.hr.shift();
+    db.people[name]=a; lsSet(db);
+  }
+  try{ optBase.checked=!!lsGet().consent; }catch(e){}
+  optBase.addEventListener('change',function(){
+    var db=lsGet(); db.consent=optBase.checked; lsSet(db);
+    setStatus(optBase.checked
+      ? '평소 대비 비교를 켰습니다. 같은 이름으로 3회 이상 재면 본인 평소값이 잡힙니다.'
+      : '평소 대비 비교를 껐습니다. 새 측정값은 저장되지 않습니다.');
+  });
+  clearBase.addEventListener('click',function(){
+    lsSet({consent:optBase.checked});
+    setStatus('저장된 평소값을 모두 지웠습니다.');
+  });
+
+  /* ---------- self check ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll('.opts'),function(g){
+    g.addEventListener('click',function(ev){
+      var b=ev.target.closest('button'); if(!b) return;
+      Array.prototype.forEach.call(g.children,function(x){x.classList.remove('on');});
+      b.classList.add('on');
+      SELF[g.getAttribute('data-q')]=parseInt(b.getAttribute('data-v'),10);
+      var n=0,k;
+      for(k in SELF) if(SELF[k]!==null) n++;
+      selfStat.textContent = n===4 ? '작성 완료 '+selfScore()+'점' : n+'/4 입력';
+      selfStat.className = 'selfstat'+(n===4?' done':'');
+    });
+  });
+  function selfScore(){
+    var s=0,k,any=false;
+    for(k in SELF) if(SELF[k]!==null){ s+=SELF[k]; any=true; }
+    return any?s:null;
+  }
+  function selfText(){
+    var m={sleep:['충분','','6시간 미만'],drink:['음주 없음','','전날 음주'],
+           med:['복약 없음','복약 중'],cond:['컨디션 좋음','컨디션 보통','','컨디션 나쁨']};
+    var out=[],k;
+    for(k in SELF) if(SELF[k]!==null && m[k] && m[k][SELF[k]]) out.push(m[k][SELF[k]]);
+    return out;
+  }
+
+  /* stage follows the camera's real ratio — nothing is cropped */
   video.addEventListener('loadedmetadata',function(){
     var vw=video.videoWidth, vh=video.videoHeight;
     if(vw&&vh){
@@ -385,7 +496,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
             : '이 기기에서 플래시를 켜지 못했습니다. 밝은 곳에서 시도하거나 얼굴 측정을 쓰세요.',
             torchOn?null:'warn');
         }else{
-          setStatus('카메라 동작 중. 약 6초 뒤 심박수가 뜹니다. 정면을 보고 가만히 계세요.');
+          setStatus('카메라 동작 중. 자세를 잡고 잠시 기다리면 값이 안정됩니다.');
         }
         loop();
       })
@@ -422,7 +533,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
 
   function reset(){
     buf=[]; bpmHist=[]; curve=null; quality=0; satWarn=false;
-    bpmEl.textContent='--'; bpmEl.className='bpm idle';
+    bpmEl.textContent='--'; bpmEl.className='bpm idle'; devEl.hidden=true;
     setMetric(mRpm,null); setMetric(mHrv,null); setMetric(mStress,null);
     qbar.style.width='0'; qbar.className=''; qtext.textContent='대기 중';
   }
@@ -461,7 +572,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     if(!n) return;
     satWarn=(sat/n)>0.45;
     buf.push({r:r/n,g:g/n,b:b/n,t:now/1000});
-    while(buf.length&&buf[0].t<now/1000-40) buf.shift();
+    while(buf.length&&buf[0].t<now/1000-45) buf.shift();
 
     if(buf.length) liveTxt.textContent=(buf[buf.length-1].t-buf[0].t).toFixed(1)+'초';
     if(now-lastEstimate>700){ lastEstimate=now; live(); }
@@ -555,11 +666,20 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     var ib=[],j;
     for(j=1;j<pk.length;j++) ib.push((pk[j]-pk[j-1])/FS*1000);
     var s=ib.slice().sort(function(a,b){return a-b;}), med=s[Math.floor(s.length/2)];
+
+    /* rhythm irregularity, measured before outlier filtering */
+    var outl=0, big=0;
+    for(j=0;j<ib.length;j++) if(Math.abs(ib[j]-med)/med>0.20) outl++;
+    for(j=1;j<ib.length;j++) if(Math.abs(ib[j]-ib[j-1])>50) big++;
+    var outRatio=ib.length?outl/ib.length:0;
+    var pnn50=ib.length>1?big/(ib.length-1):0;
+
     var keep=ib.filter(function(v){return v>med*0.72&&v<med*1.28;});
     if(keep.length<4) return null;
     var sum=0,cnt=0;
     for(j=1;j<keep.length;j++){ var dd=keep[j]-keep[j-1]; sum+=dd*dd; cnt++; }
-    return {sdnn:sd(keep), rmssd:cnt?Math.sqrt(sum/cnt):null};
+    return {sdnn:sd(keep), rmssd:cnt?Math.sqrt(sum/cnt):null,
+            n:ib.length, outRatio:outRatio, pnn50:pnn50};
   }
 
   function analyze(tStart,tEnd){
@@ -583,7 +703,8 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     var q=Math.max(0,Math.min(1,(hr.share-(mode==='finger'?0.14:0.10))/0.32));
     if(mo>0.006) q*=0.45;
     var out={bpm:hr.f*60, q:q, motion:mo, sig:h, N:rs.N, dur:rs.N/FS};
-    if(rs.N>=FS*8){
+
+    if(rs.N>=FS*9){
       var slow=band(mode==='finger'?rs.R:rs.G,rs.N,Math.round(FS*0.4),Math.round(FS*5));
       var rp=peak(slow,rs.N,0.13,0.50,0.004);
       if(rp&&rp.share>0.12) out.rpm=rp.f*60;
@@ -593,6 +714,9 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       if(bt&&bt.rmssd){
         out.rmssd=bt.rmssd; out.sdnn=bt.sdnn;
         out.stress=Math.max(5,Math.min(95,Math.round(100-1.1*bt.rmssd)));
+        /* irregular rhythm: only where the signal is strong and long enough to mean anything */
+        if(mode==='finger' && out.dur>=25 && q>=0.5 && bt.n>=20
+           && bt.outRatio>=0.12 && bt.pnn50>=0.30) out.irregular=true;
       }
     }
     return out;
@@ -604,10 +728,20 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     el.className=''; el.innerHTML=val+(unit?'<small>'+unit+'</small>':'');
   }
 
+  function showDev(bpm){
+    var b=baselineFor((who.value||'').trim());
+    if(!b||!bpm){ devEl.hidden=true; return null; }
+    var d=Math.round(bpm-b.hr);
+    devEl.hidden=false;
+    devEl.textContent='평소 '+b.hr+' · '+(d>0?'+':'')+d;
+    devEl.className='dev'+(Math.abs(d)>=12?' hi':'');
+    return {dev:d, base:b.hr, n:b.n};
+  }
+
   function live(){
     if(!buf.length) return;
     var tEnd=buf[buf.length-1].t, have=tEnd-buf[0].t-0.2;
-    if(have<5){ qtext.textContent='수집 중'; return; }
+    if(have<4){ qtext.textContent='수집 중'; return; }
     var e=analyze(tEnd-Math.min(LIVEWIN,have),tEnd);
     if(!e){ qtext.textContent='수집 중'; return; }
     if(e.dark){ setStatus('너무 어둡습니다. 밝은 곳으로 가거나 창을 마주보세요.','warn'); qtext.textContent='조도 부족'; return; }
@@ -622,12 +756,13 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       bpmHist.push(e.bpm);
       if(bpmHist.length>7) bpmHist.shift();
       var s=bpmHist.slice().sort(function(a,b){return a-b;});
-      bpmEl.textContent=Math.round(s[Math.floor(s.length/2)]);
-      bpmEl.className='bpm';
+      var med=Math.round(s[Math.floor(s.length/2)]);
+      bpmEl.textContent=med; bpmEl.className='bpm';
+      showDev(med);
       setMetric(mRpm,e.rpm?Math.round(e.rpm):null,'회/분');
       setMetric(mHrv,e.rmssd?Math.round(e.rmssd):null,'ms');
       setMetric(mStress,e.stress!==undefined?e.stress:null);
-    }else if(!bpmHist.length){ bpmEl.textContent='--'; bpmEl.className='bpm idle'; }
+    }else if(!bpmHist.length){ bpmEl.textContent='--'; bpmEl.className='bpm idle'; devEl.hidden=true; }
 
     if(measuring) return;
     if(mode==='finger'&&satWarn) setStatus('너무 세게 누르고 있습니다. 힘을 빼고 살짝만 얹으세요.','warn');
@@ -648,7 +783,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
 
   /* ================= waveform ================= */
   function drawWave(){
-    var dpr=window.devicePixelRatio||1, cssW=waveCv.clientWidth||900, cssH=52;
+    var dpr=window.devicePixelRatio||1, cssW=waveCv.clientWidth||900, cssH=50;
     if(waveCv.width!==Math.round(cssW*dpr)){ waveCv.width=Math.round(cssW*dpr); waveCv.height=Math.round(cssH*dpr); }
     var c=wctx2,w=waveCv.width,h=waveCv.height,i;
     c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,w,h);
@@ -705,27 +840,63 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     if(left<=0){ finish(); return; }
     setTimeout(tickCount,200);
   }
+
   function finish(){
     measuring=false; bigCount.classList.remove('on'); btnMeasure.disabled=false;
     var tEnd=buf.length?buf[buf.length-1].t:0;
-    var e=analyze(measureStartT,tEnd);
+
+    /* the countdown window, and a longer one that reuses the signal already collected
+       while the user was lining up — whichever is cleaner wins */
+    var eShort=analyze(measureStartT,tEnd);
+    var want=Math.max(DUR,15);
+    var eLong=null;
+    if(buf.length && tEnd-buf[0].t > DUR+3)
+      eLong=analyze(Math.max(buf[0].t, tEnd-want), tEnd);
+
+    var e=eShort;
+    if(eLong && !eLong.dark && !eLong.noFinger && isFinite(eLong.bpm)){
+      if(!e || e.dark || e.noFinger || !isFinite(e.bpm) || eLong.q>=e.q-0.03) e=eLong;
+    }
     if(!e||e.dark||e.noFinger||e.q<0.26||!isFinite(e.bpm)){
       setStatus('신뢰할 만한 신호가 모이지 않아 기록하지 않았습니다. 자세와 조명을 바꿔 다시 시도하세요.','warn');
       return;
     }
+
+    var name=(who.value||'').trim();
+    var b=baselineFor(name);
     var r={
-      time:new Date(), mode:mode,
-      who:(who.value||'').trim(),
+      time:new Date(), mode:mode, who:name,
       how: mode==='finger'?'손가락':('얼굴 · '+ROIS[roiKey()].label),
       bpm:Math.round(e.bpm),
       rpm:e.rpm?Math.round(e.rpm):null,
       rmssd:e.rmssd?Math.round(e.rmssd):null,
       stress:e.stress!==undefined?e.stress:null,
-      q:e.q, dur:e.dur, sig:e.sig
+      irregular:!!e.irregular,
+      q:e.q, dur:e.dur, count:DUR, sig:e.sig,
+      base:b?b.hr:null, dev:b?Math.round(e.bpm-b.hr):null,
+      self:selfScore(), selfList:selfText()
     };
-    r.ok=r.q>=0.5&&r.bpm>=50&&r.bpm<=110;
+    r.v=verdict(r);
+    pushBaseline(name, r.bpm);
     addLog(r); makeCard(r);
-    setStatus('측정 완료. 아래 결과 카드를 저장하실 수 있습니다.');
+    setStatus(r.irregular
+      ? '측정 완료. 박동이 불규칙하게 나왔습니다 — 아래 안내를 확인하세요.'
+      : '측정 완료. 아래 결과 카드를 저장하실 수 있습니다.', r.irregular?'warn':null);
+  }
+
+  function verdict(r){
+    if(r.q<0.45) return {k:'재측정', c:'bad', note:'신호 품질이 낮습니다'};
+    var f=0;
+    if(r.bpm<50||r.bpm>110) f+=2;
+    if(r.dev!==null){
+      if(Math.abs(r.dev)>=20) f+=2;
+      else if(Math.abs(r.dev)>=12) f+=1;
+    }
+    if(r.self!==null){ if(r.self>=4) f+=2; else if(r.self>=2) f+=1; }
+    if(r.irregular) f+=2;
+    if(f>=2) return {k:'확인 필요', c:'bad', note:''};
+    if(f===1) return {k:'주의', c:'mid', note:''};
+    return {k:'정상 범위', c:'ok', note:''};
   }
 
   function addLog(r){
@@ -736,8 +907,8 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       +'<td>'+(r.who||'—')+'</td>'
       +'<td>'+(r.mode==='finger'?'손가락':'얼굴')+'</td>'
       +'<td class="num">'+r.bpm+'</td>'
-      +'<td class="num">'+(r.rpm!==null?r.rpm:'—')+'</td>'
-      +'<td><span class="tag '+(r.ok?'ok':'re')+'">'+(r.ok?'정상':'재측정')+'</span></td>';
+      +'<td class="num">'+(r.dev!==null?(r.dev>0?'+':'')+r.dev:'—')+'</td>'
+      +'<td><span class="tag '+r.v.c+'">'+r.v.k+'</span></td>';
     logEl.insertBefore(tr,logEl.firstChild);
   }
 
@@ -769,20 +940,20 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   function makeCard(r){
     var colW=CW-M*2;
     var vw=video.videoWidth||480, vh=video.videoHeight||640;
-    /* the photo box follows the camera's real ratio, so the whole frame fits — helmet included */
     var ph=Math.round(colW*vh/vw);
     if(ph>1260) ph=1260;
     if(ph<560) ph=560;
 
     var py=168;
-    var base=py+ph;
-    var bpmBase=base+110;
-    var metY=bpmBase+44;
-    var metH=104;
+    var bpmBase=py+ph+108;
+    var metY=bpmBase+44, metH=104;
     var relY=metY+metH+48;
-    var waveY=relY+38;
-    var waveH=126;
-    var CH=waveY+waveH+58;
+    var waveY=relY+38, waveH=126;
+    var y=waveY+waveH+34;
+    var selfY=0, irrY=0;
+    if(r.selfList&&r.selfList.length){ selfY=y+10; y=selfY+62; }
+    if(r.irregular){ irrY=y+10; y=irrY+96; }
+    var CH=y+34;
 
     var cv=document.createElement('canvas'); cv.width=CW; cv.height=CH;
     var c=cv.getContext('2d');
@@ -797,16 +968,18 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     var p=function(v){return String(v).padStart(2,'0');}, d=r.time;
     var meta=(r.who?r.who+'   ·   ':'')
       + d.getFullYear()+'.'+p(d.getMonth()+1)+'.'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())
-      + '   ·   '+r.how+'   ·   '+r.dur.toFixed(0)+'초';
+      + '   ·   '+r.how
+      + '   ·   측정 '+r.count+'초'+(Math.round(r.dur)!==r.count?' (분석 '+r.dur.toFixed(0)+'초)':'');
     c.fillStyle=K_INK3; c.font='19px '+FONT;
     c.fillText(meta, M, 130);
 
-    var pillW=r.ok?126:148;
-    rr(c,CW-M-pillW,50,pillW,42,21);
-    c.fillStyle=r.ok?'#E2F2EC':'#FBF0DF'; c.fill();
-    c.fillStyle=r.ok?K_OK:K_WARN; c.font='800 19px '+FONT;
-    c.textAlign='center'; c.textBaseline='middle';
-    c.fillText(r.ok?'정상 범위':'재측정 권고', CW-M-pillW/2, 71);
+    var vc = r.v.c==='ok'?K_OK:(r.v.c==='mid'?K_WARN:SK_RED);
+    var vbg= r.v.c==='ok'?'#E2F2EC':'#FBF0DF';
+    c.font='800 19px '+FONT;
+    var pillW=c.measureText(r.v.k).width+48;
+    rr(c,CW-M-pillW,50,pillW,42,21); c.fillStyle=vbg; c.fill();
+    c.fillStyle=vc; c.textAlign='center'; c.textBaseline='middle';
+    c.fillText(r.v.k, CW-M-pillW/2, 71);
     c.textAlign='left'; c.textBaseline='alphabetic';
 
     /* photo — whole frame, never cropped */
@@ -820,7 +993,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     c.restore();
     c.strokeStyle=K_LINE; c.lineWidth=1; rr(c,M,py,colW,ph,18); c.stroke();
 
-    /* BPM */
+    /* BPM + baseline */
     c.fillStyle=K_INK; c.font='800 74px '+FONT;
     c.fillText(String(r.bpm), M, bpmBase);
     var bw=c.measureText(String(r.bpm)).width;
@@ -828,6 +1001,17 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     c.fillText('BPM', M+bw+12, bpmBase-8);
     c.fillStyle=K_INK3; c.font='17px '+FONT;
     c.fillText('분당 심박수', M+bw+12, bpmBase+16);
+    if(r.dev!==null){
+      var dt='평소 '+r.base+'  ·  '+(r.dev>0?'+':'')+r.dev;
+      c.font='800 24px '+FONT;
+      var dw2=c.measureText(dt).width+34;
+      rr(c,CW-M-dw2,bpmBase-46,dw2,54,14);
+      c.fillStyle=Math.abs(r.dev)>=12?'#FBF0DF':K_SOFT; c.fill();
+      c.strokeStyle=K_LINE; c.lineWidth=1; c.stroke();
+      c.fillStyle=Math.abs(r.dev)>=12?K_WARN:K_INK; c.textAlign='center';
+      c.fillText(dt, CW-M-dw2/2, bpmBase-10);
+      c.textAlign='left';
+    }
 
     var boxes=[
       {k:'호흡수', v:r.rpm!==null?String(r.rpm):'—', u:r.rpm!==null?'회/분':''},
@@ -869,6 +1053,34 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     c.fillStyle=K_INK3; c.font='14px '+FONT;
     c.fillText('맥파 파형 — 최근 8초', M+2, waveY+waveH+26);
 
+    /* self check chips */
+    if(selfY){
+      c.fillStyle=K_INK3; c.font='700 15px '+FONT;
+      c.fillText('작업 전 자가 체크', M, selfY+16);
+      var cx=M;
+      c.font='700 17px '+FONT;
+      for(i=0;i<r.selfList.length;i++){
+        var tw=c.measureText(r.selfList[i]).width+30;
+        if(cx+tw>CW-M) break;
+        rr(c,cx,selfY+26,tw,34,17); c.fillStyle=K_SOFT; c.fill();
+        c.strokeStyle=K_LINE; c.lineWidth=1; c.stroke();
+        c.fillStyle=K_INK; c.textAlign='center'; c.textBaseline='middle';
+        c.fillText(r.selfList[i], cx+tw/2, selfY+43);
+        c.textAlign='left'; c.textBaseline='alphabetic';
+        cx+=tw+9;
+      }
+    }
+
+    /* irregular rhythm notice */
+    if(irrY){
+      rr(c,M,irrY,colW,86,13); c.fillStyle='#FBF0DF'; c.fill();
+      c.strokeStyle=SK_ORANGE; c.lineWidth=2; c.stroke();
+      c.fillStyle=K_WARN; c.font='800 21px '+FONT;
+      c.fillText('박동이 불규칙하게 나왔습니다', M+22, irrY+34);
+      c.font='16px '+FONT;
+      c.fillText('진단이 아닙니다. 반복해서 같은 결과가 나오면 진료를 권합니다.', M+22, irrY+62);
+    }
+
     var url=cv.toDataURL('image/png');
     cardImg.src=url; btnSave.href=url;
     btnSave.download='컨디션체크_'+(r.who?r.who+'_':'')
@@ -906,20 +1118,24 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   function setDur(v){
     if(measuring) return;
     DUR=v; bigCount.textContent=v;
+    seg5.classList.toggle('on',v===5);
     seg15.classList.toggle('on',v===15);
     seg30.classList.toggle('on',v===30);
+    if(v===30) setStatus('30초 정밀 모드입니다. 손가락 측정에서는 박동 규칙성까지 확인합니다.');
   }
 
   tabFace.addEventListener('click',function(){setMode('face');});
   tabFinger.addEventListener('click',function(){setMode('finger');});
   segF.addEventListener('click',function(){setRoi('forehead');});
   segC.addEventListener('click',function(){setRoi('cheeks');});
+  seg5.addEventListener('click',function(){setDur(5);});
   seg15.addEventListener('click',function(){setDur(15);});
   seg30.addEventListener('click',function(){setDur(30);});
   btnStart.addEventListener('click',start);
   btnStop.addEventListener('click',stop);
   btnMeasure.addEventListener('click',measure);
   btnAgain.addEventListener('click',function(){ cardPanel.hidden=true; measure(); });
+  who.addEventListener('change',function(){ showDev(parseFloat(bpmEl.textContent)); });
   window.addEventListener('resize',drawWave);
   document.addEventListener('visibilitychange',function(){ if(!document.hidden&&running) keepAwake(); });
   drawWave();
