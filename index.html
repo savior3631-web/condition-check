@@ -9,7 +9,7 @@
 :root{
   --bg:#F7F4F4; --surface:#FFFFFF; --surface-2:#F0EAEB;
   --ink:#1A1416; --ink-2:#5C5054; --ink-3:#7E7276;
-  --line:#E3DBDC; --grid:#EDE6E7;
+  --line:#E3DBDC;
   --accent:#EA002C; --accent-ink:#FFFFFF;
   --sk-orange:#FAA61A; --orange-ink:#8F5200; --orange-soft:#FBF0DF;
   --ok:#0F7A57; --ok-soft:#E2F2EC;
@@ -20,7 +20,7 @@
   :root:not([data-theme="light"]){
     --bg:#151011; --surface:#1E1719; --surface-2:#281F21;
     --ink:#F2EAEC; --ink-2:#B7A9AD; --ink-3:#8E8085;
-    --line:#362B2E; --grid:#2B2224;
+    --line:#362B2E;
     --accent:#FF5470; --accent-ink:#2A0008;
     --sk-orange:#FFBC4D; --orange-ink:#FFBC4D; --orange-soft:#37280F;
     --ok:#3FCFA0; --ok-soft:#10322A;
@@ -31,7 +31,7 @@
 :root[data-theme="dark"]{
   --bg:#151011; --surface:#1E1719; --surface-2:#281F21;
   --ink:#F2EAEC; --ink-2:#B7A9AD; --ink-3:#8E8085;
-  --line:#362B2E; --grid:#2B2224;
+  --line:#362B2E;
   --accent:#FF5470; --accent-ink:#2A0008;
   --sk-orange:#FFBC4D; --orange-ink:#FFBC4D; --orange-soft:#37280F;
   --ok:#3FCFA0; --ok-soft:#10322A;
@@ -64,7 +64,6 @@ p{margin:0}
 .tabs button{border:0;background:transparent;color:var(--ink-2);font-size:14.5px;font-weight:700;
   padding:9px 4px;border-radius:8px}
 .tabs button.on{background:var(--accent);color:var(--accent-ink)}
-
 .chips{display:flex;gap:5px;margin-bottom:7px}
 .chips button{flex:1;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);
   font-size:12.5px;font-weight:700;padding:7px 3px;border-radius:8px}
@@ -72,13 +71,11 @@ p{margin:0}
 input#who{width:100%;border:1px solid var(--line);background:var(--surface);color:var(--ink);
   font:inherit;font-size:13px;padding:8px 11px;border-radius:9px}
 input#who:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-
 .optrow{display:flex;align-items:center;gap:7px;margin:7px 1px;font-size:12px;color:var(--ink-2)}
 .optrow input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
 .optrow label{flex:1}
 .linkbtn{background:none;border:0;color:var(--ink-3);font-size:11.5px;font-weight:700;
   text-decoration:underline;padding:2px 0;cursor:pointer}
-
 .selfbox{margin-bottom:8px;border:1px solid var(--line);border-radius:11px;background:var(--surface)}
 .selfbox summary{padding:9px 11px;font-size:13px;font-weight:700}
 .selfstat{font-size:11.5px;font-weight:700;color:var(--ink-3)}
@@ -90,53 +87,61 @@ input#who:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
   font-size:11.5px;font-weight:700;padding:6px 2px;border-radius:7px}
 .opts button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 
+/* ---- camera stage ---- */
 .stagewrap{display:flex;justify-content:center;margin-top:2px}
-.stage{position:relative;border-radius:12px;overflow:hidden;background:#0A0708;
-  width:min(100%, calc(42vh * var(--arn, .75))); aspect-ratio:var(--ar, 3/4);}
+.stage{position:relative;border-radius:14px;overflow:hidden;background:#0A0708;
+  width:min(100%, calc(46vh * var(--arn, .75))); aspect-ratio:var(--ar, 3/4);}
 video{width:100%;height:100%;object-fit:contain;display:block;background:#0A0708}
 video.mirror{transform:scaleX(-1)}
 .guide{position:absolute;inset:0;pointer-events:none}
-.oval{position:absolute;left:15%;top:7%;width:70%;height:70%;border:2px dashed rgba(255,255,255,.42);border-radius:50% 50% 45% 45%}
+.frame{position:absolute;left:13%;top:7%;right:13%;bottom:28%}
+.frame i{position:absolute;width:32px;height:32px;border:3px solid rgba(255,255,255,.85);
+  border-radius:4px;transition:border-color .3s}
+.frame i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0}
+.frame i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0}
+.frame i:nth-child(3){left:0;bottom:0;border-right:0;border-top:0}
+.frame i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0}
+.frame.good i{border-color:#3EE0A8}
 .roi{position:absolute;border:2px solid #FF5470;border-radius:5px;background:rgba(234,0,44,.15)}
 .roi span{position:absolute;left:0;bottom:calc(100% + 4px);font-size:10.5px;font-weight:700;color:#fff;
   text-shadow:0 1px 3px rgba(0,0,0,.9);white-space:nowrap}
-.live{position:absolute;left:8px;top:8px;display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;
+.live{position:absolute;left:9px;top:9px;display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;
   color:#fff;background:rgba(0,0,0,.55);padding:4px 9px;border-radius:999px;font-variant-numeric:tabular-nums}
 .live i{width:6px;height:6px;border-radius:50%;background:#FF5470;display:block}
+.vwave{position:absolute;left:0;right:0;bottom:5px;height:58px;pointer-events:none;
+  background:linear-gradient(to top,rgba(0,0,0,.6),rgba(0,0,0,0))}
+canvas#wave{display:block;width:100%;height:58px}
+.vprog{position:absolute;left:0;right:0;bottom:0;height:5px;background:rgba(255,255,255,.22)}
+.vprog i{display:block;height:100%;width:0;background:#EA002C;transition:width .18s linear}
 .camoff{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;
   color:#CFC4C6;background:#0A0708;font-size:13px;line-height:1.8}
 .camoff>div{text-align:center;max-width:30ch}
 .camoff b{color:#fff}
 .bigcount{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
-  background:rgba(0,0,0,.45);color:#fff;font-size:84px;font-weight:800;font-variant-numeric:tabular-nums;
+  background:rgba(0,0,0,.42);color:#fff;font-size:84px;font-weight:800;font-variant-numeric:tabular-nums;
   text-shadow:0 2px 16px rgba(0,0,0,.7)}
 .bigcount.on{display:flex}
 
-.readout{display:flex;align-items:baseline;gap:8px;margin-top:9px}
-.bpm{font-size:44px;line-height:1;font-weight:800;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
-.bpm.idle{color:var(--ink-3)}
-.unit{font-size:12.5px;font-weight:700;color:var(--ink-3)}
-.dev{font-size:12px;font-weight:700;color:var(--ink-3);font-variant-numeric:tabular-nums}
-.dev.hi{color:var(--orange-ink)}
-.heart{width:11px;height:11px;border-radius:50%;background:var(--accent);opacity:.2;align-self:center}
-.heart.beat{opacity:1;transform:scale(1.5);transition:transform .09s,opacity .09s}
-@media (prefers-reduced-motion:reduce){.heart.beat{transform:none}}
-.qnum{margin-left:auto;font-size:12px;font-weight:700;color:var(--ink-3);font-variant-numeric:tabular-nums}
-
-.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
-  border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:8px}
-.metric{background:var(--surface);padding:7px 7px 8px}
-.metric dt{font-size:9.5px;color:var(--ink-3);font-weight:700;margin:0;line-height:1.3}
-.metric dd{margin:2px 0 0;font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.metric dd small{font-size:9.5px;font-weight:700;color:var(--ink-3);margin-left:2px}
-.metric dd.na{color:var(--ink-3);font-size:15px}
-
-.meter{height:6px;border-radius:4px;background:var(--surface-2);overflow:hidden;margin-top:8px}
-.meter i{display:block;height:100%;width:0;background:var(--ok);border-radius:4px;transition:width .3s}
-.meter i.low{background:var(--accent)}
-.meter i.mid{background:var(--sk-orange)}
-.wavewrap{margin-top:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);overflow:hidden}
-canvas#wave{display:block;width:100%;height:50px}
+/* ---- metric tiles ---- */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}
+.tile{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:9px 11px 10px;min-width:0}
+.tile.wide{grid-column:span 2}
+.tile .lab{display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;color:var(--ink-3)}
+.tile .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);opacity:.25;flex:none}
+.tile .dot.beat{opacity:1;transform:scale(1.6);transition:transform .09s,opacity .09s}
+@media (prefers-reduced-motion:reduce){.tile .dot.beat{transform:none}}
+.tile .val{margin-top:3px;font-size:24px;font-weight:800;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.wide .val{font-size:42px}
+.tile .val small{font-size:11px;font-weight:700;color:var(--ink-3);margin-left:3px}
+.tile .val.na{color:var(--ink-3);font-size:20px}
+.tile.wide .val.na{font-size:30px}
+.tile .sub{margin-top:2px;font-size:10.5px;font-weight:700;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.tile .sub.hi{color:var(--orange-ink)}
+.qring{height:5px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:7px}
+.qring i{display:block;height:100%;width:0;background:var(--ok);border-radius:3px;transition:width .3s}
+.qring i.low{background:var(--accent)}
+.qring i.mid{background:var(--sk-orange)}
 
 .controls{display:flex;gap:6px;margin-top:9px}
 button{font:inherit;font-weight:700;font-size:15px;cursor:pointer;padding:12px 14px;border-radius:11px;
@@ -147,6 +152,10 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .status{margin-top:7px;font-size:12.5px;line-height:1.5;color:var(--ink-2);min-height:2.4em}
 .status.warn{color:var(--orange-ink)}
 .status.crit{color:var(--accent)}
+
+.irr{margin-top:9px;background:var(--orange-soft);border:2px solid var(--sk-orange);
+  border-radius:12px;padding:11px 13px;font-size:12.5px;line-height:1.6;color:var(--orange-ink)}
+.irr b{display:block;font-size:14px;margin-bottom:3px}
 
 #cardPanel img{width:100%;height:auto;display:block;border-radius:11px;border:1px solid var(--line)}
 a.btn{text-decoration:none;flex:1}
@@ -173,7 +182,6 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .tag.bad{background:var(--orange-soft);color:var(--accent)}
 .empty{color:var(--ink-3);font-size:13px;padding:8px 2px}
 .tablewrap{overflow-x:auto}
-
 .note h3{font-size:13.5px;margin:12px 0 6px}
 .note:first-child h3{margin-top:0}
 .note ul{margin:0;padding-left:17px;color:var(--ink-2);font-size:13px;line-height:1.7}
@@ -206,7 +214,6 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       <button type="button" id="tabFace" class="on">얼굴로 측정</button>
       <button type="button" id="tabFinger">손가락으로 측정</button>
     </div>
-
     <div class="chips">
       <button type="button" id="segF" class="on">이마</button>
       <button type="button" id="segC">양 볼·안전모</button>
@@ -216,7 +223,6 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       <button type="button" id="seg15">15초</button>
       <button type="button" id="seg30">30초 정밀</button>
     </div>
-
     <input id="who" type="text" placeholder="이름 또는 사번 (선택)" autocomplete="off">
     <div class="optrow">
       <input type="checkbox" id="optBase">
@@ -242,7 +248,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       <div class="stage" id="stage">
         <video id="cam" playsinline muted autoplay></video>
         <div class="guide" id="guide" hidden>
-          <div class="oval" id="oval"></div>
+          <div class="frame" id="frame"><i></i><i></i><i></i><i></i></div>
           <div id="roiF">
             <div class="roi" style="left:30%;top:22%;width:40%;height:13%"><span>이마</span></div>
           </div>
@@ -251,29 +257,41 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
             <div class="roi" style="left:64%;top:44%;width:20%;height:14%"><span>볼(우)</span></div>
           </div>
           <div id="roiFinger" hidden>
-            <div class="roi" style="left:28%;top:34%;width:44%;height:32%"><span>손끝으로 렌즈를 덮으세요</span></div>
+            <div class="roi" style="left:28%;top:30%;width:44%;height:28%"><span>손끝으로 렌즈를 덮으세요</span></div>
           </div>
           <div class="live"><i></i><span id="liveTxt">0.0초</span></div>
         </div>
+        <div class="vwave"><canvas id="wave" width="900" height="116"></canvas></div>
+        <div class="vprog"><i id="prog"></i></div>
         <div class="camoff" id="camoff"><div>카메라가 꺼져 있습니다.<br><b>카메라 켜기</b>를 누르면 권한을 묻습니다.</div></div>
         <div class="bigcount" id="bigCount">5</div>
       </div>
     </div>
 
-    <div class="readout">
-      <span class="bpm idle" id="bpm">--</span>
-      <span class="unit">BPM</span>
-      <span class="dev" id="dev" hidden></span>
-      <span class="heart" id="heart" aria-hidden="true"></span>
-      <span class="qnum" id="qtext">대기 중</span>
+    <div class="tiles">
+      <div class="tile wide">
+        <div class="lab"><span class="dot" id="heart"></span>심박수</div>
+        <div class="val na" id="bpm">—</div>
+        <div class="sub" id="dev">&nbsp;</div>
+      </div>
+      <div class="tile">
+        <div class="lab">신호 신뢰도</div>
+        <div class="val na" id="qval">—</div>
+        <div class="qring"><i id="qbar"></i></div>
+      </div>
+      <div class="tile">
+        <div class="lab">호흡수</div>
+        <div class="val na" id="mRpm">—</div>
+      </div>
+      <div class="tile">
+        <div class="lab">HRV RMSSD</div>
+        <div class="val na" id="mHrv">—</div>
+      </div>
+      <div class="tile">
+        <div class="lab">긴장도</div>
+        <div class="val na" id="mStress">—</div>
+      </div>
     </div>
-    <dl class="metrics">
-      <div class="metric"><dt>호흡수</dt><dd class="na" id="mRpm">—</dd></div>
-      <div class="metric"><dt>HRV RMSSD</dt><dd class="na" id="mHrv">—</dd></div>
-      <div class="metric"><dt>긴장도</dt><dd class="na" id="mStress">—</dd></div>
-    </dl>
-    <div class="meter"><i id="qbar"></i></div>
-    <div class="wavewrap"><canvas id="wave" width="900" height="100" aria-label="맥파 파형"></canvas></div>
 
     <div class="controls">
       <button id="btnStart" class="primary" style="flex:1">카메라 켜기</button>
@@ -281,6 +299,12 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       <button id="btnStop" style="flex:1" hidden>중지</button>
     </div>
     <p class="status" id="status">얼굴이 화면 안에 들어오게 맞추고, 밝은 곳에서 움직이지 않은 채 측정하세요.</p>
+
+    <div class="irr" id="irrBanner" hidden>
+      <b>박동이 불규칙하게 나왔습니다</b>
+      진단이 아닙니다. 한 번 더 재보고 같은 결과가 반복되면 진료를 권합니다.
+      이 내용은 저장 카드에 남지 않습니다.
+    </div>
   </section>
 
   <section class="panel" id="cardPanel" hidden>
@@ -313,13 +337,13 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
         <ul>
           <li><b>5초</b> — 심박수 기준 평균오차 1 bpm. 일상 체크에 충분합니다.</li>
           <li>카메라를 켜둔 동안 신호가 계속 쌓이므로, 5초를 눌러도 <b>직전 구간까지 합쳐 분석</b>합니다. 그래서 호흡수·HRV도 대부분 함께 나옵니다.</li>
-          <li><b>30초</b>는 HRV와 불규칙 맥 판정이 필요할 때 쓰세요.</li>
+          <li><b>30초</b>는 HRV와 박동 규칙성 판정이 필요할 때 쓰세요.</li>
         </ul>
       </div>
       <div class="note">
         <h3>평소 대비 비교</h3>
         <ul>
-          <li>같은 이름으로 3회 이상 재면 <b>본인 평소값</b>이 잡히고, 이후 "평소 +14" 로 표시됩니다.</li>
+          <li>같은 이름으로 3회 이상 재면 <b>본인 평소값</b>이 잡히고 "평소 68 · +14" 로 표시됩니다.</li>
           <li>절대 기준(50~110)보다 훨씬 민감합니다. 평소 55인 사람의 75는 정상 범위지만 본인에겐 이상 신호입니다.</li>
           <li>저장은 <b>이 폰 이 브라우저 안에만</b> 됩니다. 서버로 가지 않고, 삭제 버튼으로 언제든 지웁니다.</li>
         </ul>
@@ -328,8 +352,8 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
         <h3>얼굴 · 손가락</h3>
         <ul>
           <li><b>안전모를 쓴 채로도</b> 됩니다 — 이마가 가려지면 <b>양 볼</b>로 바꾸세요.</li>
+          <li>모서리 표시가 <b>초록색으로 바뀌면</b> 신호가 잘 잡히고 있다는 뜻입니다.</li>
           <li>손가락은 신호가 강해 HRV를 믿을 수 있습니다. 렌즈를 <b>살짝 덮는 정도</b>로.</li>
-          <li>야외 직사광은 조도가 흔들려 값이 튑니다. 그늘·실내·차량 안이 낫습니다.</li>
         </ul>
       </div>
       <div class="note">
@@ -337,7 +361,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
         <ul>
           <li><b>의료기기가 아닙니다.</b> 진단용이 아니라 "평소와 다른가"를 보는 선별 도구입니다.</li>
           <li><b>체온·혈압·산소포화도는 측정되지 않습니다.</b> 센서가 없어 원리상 불가합니다.</li>
-          <li>불규칙 맥 표시는 <b>손가락 30초</b>에서만 나오며, 진단이 아니라 진료 권유 신호입니다.</li>
+          <li>박동 규칙성은 <b>손가락 30초</b>에서만 판정하며, 화면에만 표시되고 저장 카드에는 남지 않습니다.</li>
           <li>영상과 측정값은 <b>기기 밖으로 전송되지 않습니다.</b></li>
         </ul>
       </div>
@@ -354,18 +378,18 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
 (function(){
   "use strict";
   var $=function(id){return document.getElementById(id);};
-  var video=$('cam'), stage=$('stage'), guide=$('guide'), camoff=$('camoff'), oval=$('oval'),
+  var video=$('cam'), stage=$('stage'), guide=$('guide'), camoff=$('camoff'), frame=$('frame'),
       tabFace=$('tabFace'), tabFinger=$('tabFinger'),
       segF=$('segF'), segC=$('segC'), seg5=$('seg5'), seg15=$('seg15'), seg30=$('seg30'),
       roiF=$('roiF'), roiC=$('roiC'), roiFinger=$('roiFinger'),
       btnStart=$('btnStart'), btnMeasure=$('btnMeasure'), btnStop=$('btnStop'),
       btnAgain=$('btnAgain'), btnSave=$('btnSave'), who=$('who'),
       optBase=$('optBase'), clearBase=$('clearBase'),
-      selfWrap=$('selfWrap'), selfStat=$('selfStat'),
-      statusEl=$('status'), bigCount=$('bigCount'),
-      bpmEl=$('bpm'), devEl=$('dev'), heartEl=$('heart'), qbar=$('qbar'), qtext=$('qtext'),
+      selfStat=$('selfStat'), statusEl=$('status'), bigCount=$('bigCount'), prog=$('prog'),
+      bpmEl=$('bpm'), devEl=$('dev'), heartEl=$('heart'),
+      qval=$('qval'), qbar=$('qbar'),
       mRpm=$('mRpm'), mHrv=$('mHrv'), mStress=$('mStress'),
-      waveCv=$('wave'), liveTxt=$('liveTxt'),
+      waveCv=$('wave'), liveTxt=$('liveTxt'), irrBanner=$('irrBanner'),
       logEl=$('log'), logEmpty=$('logEmpty'), logWrap=$('logWrap'),
       cardPanel=$('cardPanel'), cardImg=$('cardImg'), httpsWarn=$('httpsWarn');
 
@@ -377,7 +401,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   var ROIS={
     forehead:{rects:[[0.30,0.22,0.40,0.13]], label:'이마'},
     cheeks:  {rects:[[0.16,0.44,0.20,0.14],[0.64,0.44,0.20,0.14]], label:'양 볼'},
-    finger:  {rects:[[0.30,0.36,0.40,0.28]], label:'손끝'}
+    finger:  {rects:[[0.30,0.32,0.40,0.26]], label:'손끝'}
   };
 
   var mode='face', roiMode='forehead', DUR=5;
@@ -389,9 +413,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   var SELF={sleep:null,drink:null,med:null,cond:null};
 
   function setStatus(m,c){ statusEl.textContent=m; statusEl.className='status'+(c?' '+c:''); }
-  function tok(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
   function roiKey(){ return mode==='finger'?'finger':roiMode; }
-
   if(!window.isSecureContext) httpsWarn.hidden=false;
 
   /* ---------- personal baseline (this browser only) ---------- */
@@ -400,8 +422,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   function lsSet(o){ try{ localStorage.setItem(LSK, JSON.stringify(o)); }catch(e){} }
   function baselineFor(name){
     if(!name) return null;
-    var db=lsGet();
-    if(!db.consent) return null;
+    var db=lsGet(); if(!db.consent) return null;
     var a=(db.people||{})[name];
     if(!a||!a.hr||a.hr.length<3) return null;
     var s=a.hr.slice().sort(function(x,y){return x-y;});
@@ -409,8 +430,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   }
   function pushBaseline(name,bpm){
     if(!name) return;
-    var db=lsGet();
-    if(!db.consent) return;
+    var db=lsGet(); if(!db.consent) return;
     db.people=db.people||{};
     var a=db.people[name]||{hr:[]};
     a.hr.push(bpm); if(a.hr.length>12) a.hr.shift();
@@ -454,7 +474,6 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     return out;
   }
 
-  /* stage follows the camera's real ratio — nothing is cropped */
   video.addEventListener('loadedmetadata',function(){
     var vw=video.videoWidth, vh=video.videoHeight;
     if(vw&&vh){
@@ -496,7 +515,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
             : '이 기기에서 플래시를 켜지 못했습니다. 밝은 곳에서 시도하거나 얼굴 측정을 쓰세요.',
             torchOn?null:'warn');
         }else{
-          setStatus('카메라 동작 중. 자세를 잡고 잠시 기다리면 값이 안정됩니다.');
+          setStatus('카메라 동작 중. 모서리 표시가 초록으로 바뀌면 신호가 잘 잡히는 중입니다.');
         }
         loop();
       })
@@ -531,11 +550,16 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   }
   function releaseAwake(){ try{ if(wake){wake.release(); wake=null;} }catch(e){} }
 
+  function setVal(el,v,unit,bigNA){
+    if(v===null||v===undefined||!isFinite(v)){ el.textContent='—'; el.className='val na'; return; }
+    el.className='val'; el.innerHTML=v+(unit?'<small>'+unit+'</small>':'');
+  }
   function reset(){
     buf=[]; bpmHist=[]; curve=null; quality=0; satWarn=false;
-    bpmEl.textContent='--'; bpmEl.className='bpm idle'; devEl.hidden=true;
-    setMetric(mRpm,null); setMetric(mHrv,null); setMetric(mStress,null);
-    qbar.style.width='0'; qbar.className=''; qtext.textContent='대기 중';
+    setVal(bpmEl,null); devEl.innerHTML='&nbsp;'; devEl.className='sub';
+    setVal(qval,null); setVal(mRpm,null); setVal(mHrv,null); setVal(mStress,null);
+    qbar.style.width='0'; qbar.className=''; prog.style.width='0';
+    frame.classList.remove('good'); irrBanner.hidden=true;
   }
 
   function stop(){
@@ -575,6 +599,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     while(buf.length&&buf[0].t<now/1000-45) buf.shift();
 
     if(buf.length) liveTxt.textContent=(buf[buf.length-1].t-buf[0].t).toFixed(1)+'초';
+    if(measuring) prog.style.width=Math.min(100,100*(1-(measureEnd-now)/(DUR*1000)))+'%';
     if(now-lastEstimate>700){ lastEstimate=now; live(); }
     if(now-lastDraw>90){ lastDraw=now; drawWave(); }
     beatTick(now);
@@ -597,7 +622,6 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     }
     return {R:R,G:G,B:B,N:N};
   }
-
   function pos(R,G,B,N){
     var mR=mean(R),mG=mean(G),mB=mean(B),i;
     if(mG<12) return null;
@@ -612,13 +636,11 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     for(i=0;i<N;i++) h[i]-=mh;
     return h;
   }
-
   function contact(R,G,N){
     var useG=mean(R)>248, src=useG?G:R, h=new Float64Array(N), i, m=mean(src);
     for(i=0;i<N;i++) h[i]=-(src[i]-m);
     return band(h,N,Math.max(1,Math.round(FS*0.04)),Math.round(FS*1.6));
   }
-
   function peak(sig,N,f0,f1,step){
     var win=new Float64Array(N),i;
     for(i=0;i<N;i++) win[i]=sig[i]*(0.5-0.5*Math.cos(2*Math.PI*i/(N-1)));
@@ -635,7 +657,6 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     for(i=0;i<spec.length;i++) if(Math.abs(spec[i][0]-bf)<bw) near+=spec[i][1];
     return {f:bf, share:near/tot};
   }
-
   function band(sig,N,smoothN,driftN){
     var sm=new Float64Array(N),out=new Float64Array(N),i,k,s,c;
     for(i=0;i<N;i++){ s=0;c=0;
@@ -646,7 +667,6 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       out[i]=sm[i]-s/c; }
     return out;
   }
-
   function beats(sig,N,bpm){
     var period=FS*60/bpm, minD=Math.max(4,Math.round(period*0.55));
     var f=band(sig,N,Math.max(1,Math.round(FS*0.05)),Math.round(period*0.9));
@@ -666,14 +686,11 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     var ib=[],j;
     for(j=1;j<pk.length;j++) ib.push((pk[j]-pk[j-1])/FS*1000);
     var s=ib.slice().sort(function(a,b){return a-b;}), med=s[Math.floor(s.length/2)];
-
-    /* rhythm irregularity, measured before outlier filtering */
-    var outl=0, big=0;
+    var outl=0,big=0;
     for(j=0;j<ib.length;j++) if(Math.abs(ib[j]-med)/med>0.20) outl++;
     for(j=1;j<ib.length;j++) if(Math.abs(ib[j]-ib[j-1])>50) big++;
     var outRatio=ib.length?outl/ib.length:0;
     var pnn50=ib.length>1?big/(ib.length-1):0;
-
     var keep=ib.filter(function(v){return v>med*0.72&&v<med*1.28;});
     if(keep.length<4) return null;
     var sum=0,cnt=0;
@@ -703,7 +720,6 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     var q=Math.max(0,Math.min(1,(hr.share-(mode==='finger'?0.14:0.10))/0.32));
     if(mo>0.006) q*=0.45;
     var out={bpm:hr.f*60, q:q, motion:mo, sig:h, N:rs.N, dur:rs.N/FS};
-
     if(rs.N>=FS*9){
       var slow=band(mode==='finger'?rs.R:rs.G,rs.N,Math.round(FS*0.4),Math.round(FS*5));
       var rp=peak(slow,rs.N,0.13,0.50,0.004);
@@ -714,7 +730,6 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       if(bt&&bt.rmssd){
         out.rmssd=bt.rmssd; out.sdnn=bt.sdnn;
         out.stress=Math.max(5,Math.min(95,Math.round(100-1.1*bt.rmssd)));
-        /* irregular rhythm: only where the signal is strong and long enough to mean anything */
         if(mode==='finger' && out.dur>=25 && q>=0.5 && bt.n>=20
            && bt.outRatio>=0.12 && bt.pnn50>=0.30) out.irregular=true;
       }
@@ -722,47 +737,43 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     return out;
   }
 
-  /* ================= readout ================= */
-  function setMetric(el,val,unit){
-    if(val===null||val===undefined||!isFinite(val)){ el.textContent='—'; el.className='na'; return; }
-    el.className=''; el.innerHTML=val+(unit?'<small>'+unit+'</small>':'');
-  }
-
+  /* ================= live readout ================= */
   function showDev(bpm){
     var b=baselineFor((who.value||'').trim());
-    if(!b||!bpm){ devEl.hidden=true; return null; }
+    if(!b||!bpm){ devEl.innerHTML='&nbsp;'; devEl.className='sub'; return null; }
     var d=Math.round(bpm-b.hr);
-    devEl.hidden=false;
     devEl.textContent='평소 '+b.hr+' · '+(d>0?'+':'')+d;
-    devEl.className='dev'+(Math.abs(d)>=12?' hi':'');
-    return {dev:d, base:b.hr, n:b.n};
+    devEl.className='sub'+(Math.abs(d)>=12?' hi':'');
+    return {dev:d, base:b.hr};
   }
 
   function live(){
     if(!buf.length) return;
     var tEnd=buf[buf.length-1].t, have=tEnd-buf[0].t-0.2;
-    if(have<4){ qtext.textContent='수집 중'; return; }
+    if(have<4){ setVal(qval,null); return; }
     var e=analyze(tEnd-Math.min(LIVEWIN,have),tEnd);
-    if(!e){ qtext.textContent='수집 중'; return; }
-    if(e.dark){ setStatus('너무 어둡습니다. 밝은 곳으로 가거나 창을 마주보세요.','warn'); qtext.textContent='조도 부족'; return; }
-    if(e.noFinger){ setStatus('손끝이 렌즈를 덮지 않았습니다. 화면이 붉게 차도록 살짝 얹으세요.','warn'); qtext.textContent='손가락 없음'; return; }
+    if(!e){ return; }
+    if(e.dark){ setStatus('너무 어둡습니다. 밝은 곳으로 가거나 창을 마주보세요.','warn'); frame.classList.remove('good'); return; }
+    if(e.noFinger){ setStatus('손끝이 렌즈를 덮지 않았습니다. 화면이 붉게 차도록 살짝 얹으세요.','warn'); return; }
 
     curve=e.sig; quality=e.q;
-    qbar.style.width=Math.round(e.q*100)+'%';
+    var qp=Math.round(e.q*100);
+    qval.className='val'; qval.innerHTML=qp+'<small>%</small>';
+    qbar.style.width=qp+'%';
     qbar.className=e.q<0.34?'low':(e.q<0.62?'mid':'');
-    qtext.textContent='신뢰도 '+Math.round(e.q*100)+'%';
+    frame.classList.toggle('good', e.q>=0.5);
 
     if(e.q>=0.32){
       bpmHist.push(e.bpm);
       if(bpmHist.length>7) bpmHist.shift();
       var s=bpmHist.slice().sort(function(a,b){return a-b;});
       var med=Math.round(s[Math.floor(s.length/2)]);
-      bpmEl.textContent=med; bpmEl.className='bpm';
+      bpmEl.className='val'; bpmEl.innerHTML=med+'<small>bpm</small>';
       showDev(med);
-      setMetric(mRpm,e.rpm?Math.round(e.rpm):null,'회/분');
-      setMetric(mHrv,e.rmssd?Math.round(e.rmssd):null,'ms');
-      setMetric(mStress,e.stress!==undefined?e.stress:null);
-    }else if(!bpmHist.length){ bpmEl.textContent='--'; bpmEl.className='bpm idle'; devEl.hidden=true; }
+      setVal(mRpm,e.rpm?Math.round(e.rpm):null,'회/분');
+      setVal(mHrv,e.rmssd?Math.round(e.rmssd):null,'ms');
+      setVal(mStress,e.stress!==undefined?e.stress:null,'/100');
+    }else if(!bpmHist.length){ setVal(bpmEl,null); }
 
     if(measuring) return;
     if(mode==='finger'&&satWarn) setStatus('너무 세게 누르고 있습니다. 힘을 빼고 살짝만 얹으세요.','warn');
@@ -781,14 +792,12 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     }
   }
 
-  /* ================= waveform ================= */
+  /* ================= pulse trace over the video ================= */
   function drawWave(){
-    var dpr=window.devicePixelRatio||1, cssW=waveCv.clientWidth||900, cssH=50;
+    var dpr=window.devicePixelRatio||1, cssW=waveCv.clientWidth||900, cssH=58;
     if(waveCv.width!==Math.round(cssW*dpr)){ waveCv.width=Math.round(cssW*dpr); waveCv.height=Math.round(cssH*dpr); }
     var c=wctx2,w=waveCv.width,h=waveCv.height,i;
     c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,w,h);
-    c.strokeStyle=tok('--grid'); c.lineWidth=1*dpr;
-    for(i=1;i<3;i++){ var y=h*i/3; c.beginPath(); c.moveTo(0,y); c.lineTo(w,y); c.stroke(); }
 
     var src=null,raw=false;
     if(curve&&curve.length>=10&&quality>=0.10){
@@ -800,18 +809,21 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       src=tmp; raw=true;
     }
     if(!src){
-      c.fillStyle=tok('--ink-3'); c.font=(11*dpr)+'px sans-serif';
+      if(!running) return;
+      c.fillStyle='rgba(255,255,255,.6)'; c.font=(11*dpr)+'px sans-serif';
       c.textAlign='center'; c.textBaseline='middle';
-      c.fillText('카메라를 켜면 맥파가 표시됩니다',w/2,h/2);
+      c.fillText('맥파를 찾는 중…',w/2,h/2);
       return;
     }
-    plot(c,src,w,h,raw?tok('--ink-3'):tok('--accent'),raw?0.5:(quality<0.34?0.45:1),2*dpr);
+    c.strokeStyle='rgba(255,255,255,.16)'; c.lineWidth=1*dpr;
+    c.beginPath(); c.moveTo(0,h/2); c.lineTo(w,h/2); c.stroke();
+    plot(c,src,w,h,raw?'rgba(255,255,255,.55)':'#FF4D6A',raw?1:1,2.4*dpr);
   }
 
   function plot(c,src,w,h,color,alpha,lw){
     var n=src.length,mn=Infinity,mx=-Infinity,i;
     for(i=0;i<n;i++){ if(src[i]<mn)mn=src[i]; if(src[i]>mx)mx=src[i]; }
-    var rng=(mx-mn)||1,pad=h*0.15;
+    var rng=(mx-mn)||1,pad=h*0.17;
     c.beginPath();
     for(i=0;i<n;i++){
       var x=w*i/(n-1), y=h-pad-((src[i]-mn)/rng)*(h-pad*2);
@@ -824,12 +836,12 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   /* ================= measurement ================= */
   function measure(){
     if(!running||measuring) return;
-    cardPanel.hidden=true;
+    cardPanel.hidden=true; irrBanner.hidden=true;
     measuring=true;
     measureStartT=buf.length?buf[buf.length-1].t:performance.now()/1000;
     measureEnd=performance.now()+DUR*1000;
     bigCount.classList.add('on');
-    btnMeasure.disabled=true;
+    btnMeasure.disabled=true; prog.style.width='0';
     setStatus('측정 중입니다. 움직이지 마세요.');
     tickCount();
   }
@@ -843,16 +855,14 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
 
   function finish(){
     measuring=false; bigCount.classList.remove('on'); btnMeasure.disabled=false;
+    prog.style.width='0';
     var tEnd=buf.length?buf[buf.length-1].t:0;
 
-    /* the countdown window, and a longer one that reuses the signal already collected
-       while the user was lining up — whichever is cleaner wins */
+    /* the countdown window, plus a longer one reusing signal collected while lining up */
     var eShort=analyze(measureStartT,tEnd);
-    var want=Math.max(DUR,15);
-    var eLong=null;
+    var want=Math.max(DUR,15), eLong=null;
     if(buf.length && tEnd-buf[0].t > DUR+3)
       eLong=analyze(Math.max(buf[0].t, tEnd-want), tEnd);
-
     var e=eShort;
     if(eLong && !eLong.dark && !eLong.noFinger && isFinite(eLong.bpm)){
       if(!e || e.dark || e.noFinger || !isFinite(e.bpm) || eLong.q>=e.q-0.03) e=eLong;
@@ -862,8 +872,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       return;
     }
 
-    var name=(who.value||'').trim();
-    var b=baselineFor(name);
+    var name=(who.value||'').trim(), b=baselineFor(name);
     var r={
       time:new Date(), mode:mode, who:name,
       how: mode==='finger'?'손가락':('얼굴 · '+ROIS[roiKey()].label),
@@ -879,13 +888,14 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     r.v=verdict(r);
     pushBaseline(name, r.bpm);
     addLog(r); makeCard(r);
+    irrBanner.hidden=!r.irregular;
     setStatus(r.irregular
-      ? '측정 완료. 박동이 불규칙하게 나왔습니다 — 아래 안내를 확인하세요.'
+      ? '측정 완료. 박동 규칙성에 대한 안내가 아래에 있습니다.'
       : '측정 완료. 아래 결과 카드를 저장하실 수 있습니다.', r.irregular?'warn':null);
   }
 
   function verdict(r){
-    if(r.q<0.45) return {k:'재측정', c:'bad', note:'신호 품질이 낮습니다'};
+    if(r.q<0.45) return {k:'재측정', c:'bad'};
     var f=0;
     if(r.bpm<50||r.bpm>110) f+=2;
     if(r.dev!==null){
@@ -894,9 +904,9 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     }
     if(r.self!==null){ if(r.self>=4) f+=2; else if(r.self>=2) f+=1; }
     if(r.irregular) f+=2;
-    if(f>=2) return {k:'확인 필요', c:'bad', note:''};
-    if(f===1) return {k:'주의', c:'mid', note:''};
-    return {k:'정상 범위', c:'ok', note:''};
+    if(f>=2) return {k:'확인 필요', c:'bad'};
+    if(f===1) return {k:'주의', c:'mid'};
+    return {k:'정상 범위', c:'ok'};
   }
 
   function addLog(r){
@@ -950,9 +960,8 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     var relY=metY+metH+48;
     var waveY=relY+38, waveH=126;
     var y=waveY+waveH+34;
-    var selfY=0, irrY=0;
+    var selfY=0;
     if(r.selfList&&r.selfList.length){ selfY=y+10; y=selfY+62; }
-    if(r.irregular){ irrY=y+10; y=irrY+96; }
     var CH=y+34;
 
     var cv=document.createElement('canvas'); cv.width=CW; cv.height=CH;
@@ -982,7 +991,6 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     c.fillText(r.v.k, CW-M-pillW/2, 71);
     c.textAlign='left'; c.textBaseline='alphabetic';
 
-    /* photo — whole frame, never cropped */
     c.save(); rr(c,M,py,colW,ph,18); c.clip();
     c.fillStyle='#0A0708'; c.fillRect(M,py,colW,ph);
     var sc=Math.min(colW/vw, ph/vh), dw=vw*sc, dh=vh*sc;
@@ -993,7 +1001,6 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     c.restore();
     c.strokeStyle=K_LINE; c.lineWidth=1; rr(c,M,py,colW,ph,18); c.stroke();
 
-    /* BPM + baseline */
     c.fillStyle=K_INK; c.font='800 74px '+FONT;
     c.fillText(String(r.bpm), M, bpmBase);
     var bw=c.measureText(String(r.bpm)).width;
@@ -1053,12 +1060,10 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     c.fillStyle=K_INK3; c.font='14px '+FONT;
     c.fillText('맥파 파형 — 최근 8초', M+2, waveY+waveH+26);
 
-    /* self check chips */
     if(selfY){
       c.fillStyle=K_INK3; c.font='700 15px '+FONT;
       c.fillText('작업 전 자가 체크', M, selfY+16);
-      var cx=M;
-      c.font='700 17px '+FONT;
+      var cx=M; c.font='700 17px '+FONT;
       for(i=0;i<r.selfList.length;i++){
         var tw=c.measureText(r.selfList[i]).width+30;
         if(cx+tw>CW-M) break;
@@ -1069,16 +1074,6 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
         c.textAlign='left'; c.textBaseline='alphabetic';
         cx+=tw+9;
       }
-    }
-
-    /* irregular rhythm notice */
-    if(irrY){
-      rr(c,M,irrY,colW,86,13); c.fillStyle='#FBF0DF'; c.fill();
-      c.strokeStyle=SK_ORANGE; c.lineWidth=2; c.stroke();
-      c.fillStyle=K_WARN; c.font='800 21px '+FONT;
-      c.fillText('박동이 불규칙하게 나왔습니다', M+22, irrY+34);
-      c.font='16px '+FONT;
-      c.fillText('진단이 아닙니다. 반복해서 같은 결과가 나오면 진료를 권합니다.', M+22, irrY+62);
     }
 
     var url=cv.toDataURL('image/png');
@@ -1096,11 +1091,11 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     tabFace.classList.toggle('on',m==='face');
     tabFinger.classList.toggle('on',m==='finger');
     segF.hidden=segC.hidden=(m!=='face');
-    oval.hidden=(m!=='face');
+    frame.hidden=(m!=='face');
     roiFinger.hidden=(m!=='finger');
     roiF.hidden=(m!=='face'||roiMode!=='forehead');
     roiC.hidden=(m!=='face'||roiMode!=='cheeks');
-    cardPanel.hidden=true;
+    cardPanel.hidden=true; irrBanner.hidden=true;
     if(running){ stop(); setTimeout(start,250); }
     else setStatus(m==='finger'
       ? '카메라를 켜면 플래시가 켜집니다. 후면 렌즈에 손끝을 살짝 얹으세요.'
