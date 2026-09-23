@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0E7C66">
+<title>현장 컨디션 체크</title>
+<style>
+:root{
+  --bg:#F1F4F3; --surface:#FFFFFF; --surface-2:#E8EDEB;
+  --ink:#141D1A; --ink-2:#4C5A55; --ink-3:#7C8A85;
+  --line:#D6DEDB; --grid:#E2E9E6;
+  --accent:#0E7C66; --accent-ink:#FFFFFF; --accent-soft:#D6EDE6;
+  --warn:#A8620B; --crit:#A92D22;
+  --shadow:0 1px 2px rgba(20,29,26,.06),0 6px 20px rgba(20,29,26,.06);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1412; --surface:#161E1B; --surface-2:#1E2825;
+    --ink:#E7EDEA; --ink-2:#A3B1AC; --ink-3:#77857F;
+    --line:#293430; --grid:#222C29;
+    --accent:#3ECFAC; --accent-ink:#07201A; --accent-soft:#12332B;
+    --warn:#E0A63C; --crit:#F0857A;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.3);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1412; --surface:#161E1B; --surface-2:#1E2825;
+  --ink:#E7EDEA; --ink-2:#A3B1AC; --ink-3:#77857F;
+  --line:#293430; --grid:#222C29;
+  --accent:#3ECFAC; --accent-ink:#07201A; --accent-soft:#12332B;
+  --warn:#E0A63C; --crit:#F0857A;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+[hidden]{display:none!important}
+body{
+  background:var(--bg); color:var(--ink);
+  font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic","맑은 고딕","Noto Sans KR",sans-serif;
+  padding:0 16px;
+  padding-block:calc(16px + env(safe-area-inset-top,0px)) calc(40px + env(safe-area-inset-bottom,0px));
+}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font-size:20px;margin:0;letter-spacing:-.01em}
+h2{font-size:12px;margin:0 0 10px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+h2 .norm{text-transform:none;letter-spacing:0;font-weight:400}
+p{margin:0}
+.head{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.badge{font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px;
+  background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line);white-space:nowrap}
+.badge b{color:var(--crit)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow)}
+
+.warnbar{background:#FBEFE0;border:1px solid #E7C89A;color:#7A4708;border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.6}
+.warnbar b{font-weight:700}
+
+/* tabs */
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:13px;padding:4px}
+.tabs button{border:0;background:transparent;color:var(--ink-2);font-size:15px;font-weight:700;
+  padding:11px 6px;border-radius:9px}
+.tabs button.on{background:var(--accent);color:var(--accent-ink)}
+
+/* seg */
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.seg button{flex:1 1 0;min-width:104px;border:1px solid var(--line);background:var(--surface);
+  color:var(--ink-2);font-size:13.5px;font-weight:600;padding:9px 8px;border-radius:9px}
+.seg button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+/* stage */
+.stage{position:relative;aspect-ratio:3/4;border-radius:13px;overflow:hidden;background:#000}
+video{width:100%;height:100%;object-fit:cover;display:block}
+video.mirror{transform:scaleX(-1)}
+.guide{position:absolute;inset:0;pointer-events:none}
+.oval{position:absolute;left:16%;top:12%;width:68%;height:64%;border:2px dashed rgba(255,255,255,.45);border-radius:50% 50% 45% 45%}
+.roi{position:absolute;border:2px solid #3ECFAC;border-radius:6px;background:rgba(62,207,172,.14)}
+.roi span{position:absolute;left:0;bottom:calc(100% + 5px);font-size:11px;font-weight:700;color:#fff;
+  text-shadow:0 1px 3px rgba(0,0,0,.85);white-space:nowrap}
+.live{position:absolute;left:10px;top:10px;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;
+  color:#fff;background:rgba(0,0,0,.55);padding:5px 10px;border-radius:999px;font-variant-numeric:tabular-nums}
+.live i{width:7px;height:7px;border-radius:50%;background:#3ECFAC;display:block}
+.camoff{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:22px;
+  color:#C9D4D0;background:#0B100E;font-size:14px;line-height:1.85}
+.camoff>div{text-align:center;max-width:32ch}
+.camoff b{color:#fff}
+.bigcount{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.42);color:#fff;font-size:92px;font-weight:800;font-variant-numeric:tabular-nums;
+  text-shadow:0 2px 18px rgba(0,0,0,.6)}
+.bigcount.on{display:flex}
+
+/* buttons */
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+button{font:inherit;font-weight:700;font-size:15px;cursor:pointer;padding:13px 16px;border-radius:11px;
+  border:1px solid var(--line);background:var(--surface-2);color:var(--ink)}
+button:disabled{opacity:.42}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.wide{flex:1 1 100%}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a.btn{text-decoration:none;flex:1 1 100%}
+a.btn button{width:100%}
+.status{margin-top:10px;font-size:14px;color:var(--ink-2);min-height:2.8em}
+.status.warn{color:var(--warn)}
+.status.crit{color:var(--crit)}
+
+/* readout */
+.bpmrow{display:flex;align-items:flex-end;gap:10px}
+.bpm{font-size:72px;line-height:.9;font-weight:800;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.bpm.idle{color:var(--ink-3)}
+.unit{font-size:15px;font-weight:700;color:var(--ink-3);padding-bottom:8px}
+.heart{margin-left:auto;width:14px;height:14px;border-radius:50%;background:var(--accent);opacity:.2;align-self:center}
+.heart.beat{opacity:1;transform:scale(1.5);transition:transform .09s,opacity .09s}
+@media (prefers-reduced-motion:reduce){.heart.beat{transform:none}}
+
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:14px}
+.metric{background:var(--surface);padding:10px 8px}
+.metric dt{font-size:10.5px;letter-spacing:.03em;color:var(--ink-3);font-weight:700;margin:0;line-height:1.35}
+.metric dd{margin:4px 0 0;font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.metric dd small{font-size:10.5px;font-weight:700;color:var(--ink-3);margin-left:3px}
+.metric dd.na{color:var(--ink-3);font-size:17px}
+
+.meterlabel{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-3);margin:14px 0 6px}
+.meter{height:8px;border-radius:5px;background:var(--surface-2);overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--accent);border-radius:5px;transition:width .3s}
+.meter i.low{background:var(--crit)}
+.meter i.mid{background:var(--warn)}
+
+.wavewrap{margin-top:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);overflow:hidden}
+canvas#wave{display:block;width:100%;height:96px}
+.wavecap{font-size:12px;color:var(--ink-3);padding:7px 10px;border-top:1px solid var(--line)}
+
+#cardPanel img{width:100%;height:auto;display:block;border-radius:12px;border:1px solid var(--line)}
+.cardnote{font-size:12.5px;color:var(--ink-3);margin-top:10px}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px}
+.tag.ok{background:var(--accent-soft);color:var(--accent)}
+.tag.re{background:var(--surface-2);color:var(--warn)}
+.empty{color:var(--ink-3);font-size:13.5px;padding:12px 2px}
+.tablewrap{overflow-x:auto}
+
+.note h3{font-size:14px;margin:0 0 8px}
+.note+.note{margin-top:16px}
+.note ul{margin:0;padding-left:18px;color:var(--ink-2);font-size:14px;line-height:1.75}
+.note li{margin-bottom:5px}
+.note li b{color:var(--ink);font-weight:700}
+.rule{height:1px;background:var(--line);border:0;margin:0}
+footer{font-size:12px;color:var(--ink-3);line-height:1.7}
+@media (min-width:720px){ .wrap{max-width:900px} .stage{aspect-ratio:4/3} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <h1>현장 컨디션 체크</h1>
+    <span class="badge"><b>●</b> 의료기기 아님</span>
+  </div>
+
+  <div class="warnbar" id="httpsWarn" hidden>
+    <b>카메라를 쓸 수 없는 주소입니다.</b><br>
+    휴대폰에서는 <b>https://</b> 주소로 열어야 카메라가 켜집니다. 파일을 직접 열거나 http로 접속하면 브라우저가 차단합니다.
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button type="button" id="tabFace" class="on">얼굴로 측정</button>
+    <button type="button" id="tabFinger">손가락으로 측정</button>
+  </div>
+
+  <section class="panel">
+    <div class="seg" id="segFaceWrap">
+      <button type="button" id="segF" class="on">이마</button>
+      <button type="button" id="segC">양 볼 · 안전모</button>
+    </div>
+    <div class="seg">
+      <button type="button" id="seg15" class="on">15초 측정</button>
+      <button type="button" id="seg30">30초 · HRV 정밀</button>
+    </div>
+
+    <div class="stage">
+      <video id="cam" playsinline muted autoplay></video>
+      <div class="guide" id="guide" hidden>
+        <div class="oval" id="oval"></div>
+        <div id="roiF">
+          <div class="roi" style="left:30%;top:22%;width:40%;height:13%"><span>이마</span></div>
+        </div>
+        <div id="roiC" hidden>
+          <div class="roi" style="left:16%;top:44%;width:20%;height:14%"><span>볼 (좌)</span></div>
+          <div class="roi" style="left:64%;top:44%;width:20%;height:14%"><span>볼 (우)</span></div>
+        </div>
+        <div id="roiFinger" hidden>
+          <div class="roi" style="left:28%;top:34%;width:44%;height:32%"><span>손끝을 렌즈에 덮으세요</span></div>
+        </div>
+        <div class="live"><i></i><span id="liveTxt">수집 0.0초</span></div>
+      </div>
+      <div class="camoff" id="camoff"><div>카메라가 꺼져 있습니다.<br><b>카메라 켜기</b>를 누르면 권한을 묻습니다.</div></div>
+      <div class="bigcount" id="bigCount">15</div>
+    </div>
+
+    <div class="controls">
+      <button id="btnStart" class="primary wide">카메라 켜기</button>
+      <button id="btnMeasure" disabled style="flex:2">측정 시작</button>
+      <button id="btnStop" disabled style="flex:1">중지</button>
+    </div>
+    <p class="status" id="status">얼굴이 타원 안에 들어오게 맞추고, 밝은 곳에서 움직이지 않은 채 측정하세요.</p>
+  </section>
+
+  <section class="panel">
+    <h2>실시간 추정</h2>
+    <div class="bpmrow">
+      <span class="bpm idle" id="bpm">--</span>
+      <span class="unit">BPM</span>
+      <span class="heart" id="heart" aria-hidden="true"></span>
+    </div>
+    <dl class="metrics">
+      <div class="metric"><dt>호흡수</dt><dd class="na" id="mRpm">—</dd></div>
+      <div class="metric"><dt>HRV RMSSD</dt><dd class="na" id="mHrv">—</dd></div>
+      <div class="metric"><dt>긴장도 지수</dt><dd class="na" id="mStress">—</dd></div>
+    </dl>
+    <div class="meterlabel"><span>신호 신뢰도</span><span id="qtext">대기 중</span></div>
+    <div class="meter"><i id="qbar"></i></div>
+    <div class="wavewrap">
+      <canvas id="wave" width="900" height="192" aria-label="맥파 파형"></canvas>
+      <p class="wavecap" id="wavecap">카메라를 켜면 파형이 표시됩니다</p>
+    </div>
+  </section>
+
+  <section class="panel" id="cardPanel" hidden>
+    <h2>측정 결과 카드</h2>
+    <img id="cardImg" alt="측정 결과 카드">
+    <div class="controls">
+      <a id="btnSave" class="btn" download="컨디션체크.png"><button type="button">이미지 저장</button></a>
+      <button id="btnAgain" class="wide">다시 측정</button>
+    </div>
+    <p class="cardnote">길게 눌러 저장하거나 공유할 수도 있습니다. 새로고침하면 사라집니다.</p>
+  </section>
+
+  <section class="panel">
+    <h2>측정 기록 <span class="norm">(이 세션에만)</span></h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>시각</th><th>방식</th><th class="num">심박</th><th class="num">호흡</th><th class="num">RMSSD</th><th>판정</th></tr></thead>
+        <tbody id="log"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="logEmpty">아직 기록이 없습니다.</p>
+  </section>
+
+  <section class="panel">
+    <h2>읽는 법</h2>
+    <div class="note">
+      <h3>얼굴 측정</h3>
+      <ul>
+        <li>전면 카메라로 피부색의 미세한 변화를 읽습니다. <b>아무것도 안 만지고</b> 15초면 됩니다.</li>
+        <li><b>안전모를 쓴 채로도</b> 됩니다 — 이마가 가려지므로 <b>양 볼</b>로 바꾸세요.</li>
+        <li>밝은 곳, 정면, 정지. 야외 직사광은 구름에 조도가 흔들려 값이 튑니다. 그늘이나 차량 안이 낫습니다.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h3>손가락 측정 — 더 정확합니다</h3>
+      <ul>
+        <li>후면 카메라에 손끝을 얹고 <b>플래시를 켠 상태</b>로 잽니다. 병원 손가락 집게와 같은 원리입니다.</li>
+        <li>신호가 얼굴보다 수십 배 강해서 <b>HRV(RMSSD)를 믿을 수 있습니다.</b> 30초로 재면 더 정확합니다.</li>
+        <li>렌즈를 <b>살짝 덮는 정도</b>로. 세게 누르면 피가 안 통해 신호가 사라집니다.</li>
+        <li>겨울에 손이 차면 신호가 약합니다. 손을 녹이고 재세요.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h3>한계</h3>
+      <ul>
+        <li><b>체온·혈압·산소포화도는 측정되지 않습니다.</b> 센서가 없어서 원리상 불가합니다.</li>
+        <li>진단용이 아닙니다. "평소와 다른가"를 보는 선별 도구입니다.</li>
+        <li>이 페이지는 <b>아이폰 플래시를 켤 수 없습니다.</b> 손가락 측정은 안드로이드에서 쓰세요.</li>
+        <li>영상과 결과는 <b>기기 밖으로 전송되지 않습니다.</b></li>
+      </ul>
+    </div>
+  </section>
+
+  <hr class="rule">
+  <footer>
+    얼굴: POS 알고리즘으로 맥파 분리 → 주파수 분석. 손가락: 적색 채널 흡광 변화 직접 이용.
+    공통으로 42–180 BPM 피크를 심박수, 8–30회/분 대역을 호흡수로 추정하고, 맥파 피크 간격에서 RMSSD·SDNN을 산출합니다.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(id){return document.getElementById(id);};
+  var video=$('cam'), guide=$('guide'), camoff=$('camoff'), oval=$('oval'),
+      tabFace=$('tabFace'), tabFinger=$('tabFinger'),
+      segFaceWrap=$('segFaceWrap'), segF=$('segF'), segC=$('segC'),
+      seg15=$('seg15'), seg30=$('seg30'),
+      roiF=$('roiF'), roiC=$('roiC'), roiFinger=$('roiFinger'),
+      btnStart=$('btnStart'), btnMeasure=$('btnMeasure'), btnStop=$('btnStop'),
+      btnAgain=$('btnAgain'), btnSave=$('btnSave'),
+      statusEl=$('status'), bigCount=$('bigCount'),
+      bpmEl=$('bpm'), heartEl=$('heart'), qbar=$('qbar'), qtext=$('qtext'),
+      mRpm=$('mRpm'), mHrv=$('mHrv'), mStress=$('mStress'),
+      waveCv=$('wave'), waveCap=$('wavecap'), liveTxt=$('liveTxt'),
+      logEl=$('log'), logEmpty=$('logEmpty'),
+      cardPanel=$('cardPanel'), cardImg=$('cardImg'), httpsWarn=$('httpsWarn');
+
+  var W=240,H=320,FS=30,LIVEWIN=8;
+  var work=document.createElement('canvas'); work.width=W; work.height=H;
+  var wctx=work.getContext('2d',{willReadFrequently:true});
+  var wctx2=waveCv.getContext('2d');
+
+  var ROIS={
+    forehead:{rects:[[0.30,0.22,0.40,0.13]], label:'이마'},
+    cheeks:  {rects:[[0.16,0.44,0.20,0.14],[0.64,0.44,0.20,0.14]], label:'양 볼'},
+    finger:  {rects:[[0.30,0.36,0.40,0.28]], label:'손끝'}
+  };
+
+  var mode='face', roiMode='forehead', DUR=15;
+  var stream=null, track=null, torchOn=false, wake=null;
+  var running=false, buf=[], lastSample=0, raf=0;
+  var bpmHist=[], curve=null, quality=0, satWarn=false;
+  var measuring=false, measureEnd=0, measureStartT=0;
+  var lastEstimate=0, lastBeat=0, lastDraw=0;
+
+  function setStatus(m,c){ statusEl.textContent=m; statusEl.className='status'+(c?' '+c:''); }
+  function tok(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function roiKey(){ return mode==='finger'?'finger':roiMode; }
+
+  if(!window.isSecureContext) httpsWarn.hidden=false;
+
+  /* ================= camera ================= */
+  function start(){
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+      setStatus('이 브라우저에서 카메라를 쓸 수 없습니다. https 주소로 열었는지 확인하세요.','crit');
+      httpsWarn.hidden=false; return;
+    }
+    var wantRear = (mode==='finger');
+    var cons={audio:false, video:{
+      facingMode: wantRear?{ideal:'environment'}:{ideal:'user'},
+      width:{ideal:640}, height:{ideal:480}, frameRate:{ideal:30}
+    }};
+    setStatus('카메라 권한을 요청하는 중입니다…');
+    navigator.mediaDevices.getUserMedia(cons)
+      .then(function(s){
+        stream=s; track=s.getVideoTracks()[0];
+        video.srcObject=s;
+        video.classList.toggle('mirror', mode==='face');
+        return video.play();
+      })
+      .then(function(){
+        running=true; reset();
+        camoff.hidden=true; guide.hidden=false;
+        btnStart.disabled=true; btnMeasure.disabled=false; btnStop.disabled=false;
+        keepAwake();
+        if(mode==='finger') return enableTorch();
+      })
+      .then(function(){
+        if(mode==='finger'){
+          setStatus(torchOn
+            ? '플래시를 켰습니다. 손끝으로 렌즈를 살짝 덮으세요. 화면이 붉게 차면 정상입니다.'
+            : '이 기기에서 플래시를 켜지 못했습니다. 밝은 곳에서 시도하거나 얼굴 측정을 쓰세요.',
+            torchOn?null:'warn');
+        }else{
+          setStatus('카메라 동작 중. 약 6초 뒤 심박수가 뜹니다. 정면을 보고 가만히 계세요.');
+        }
+        loop();
+      })
+      .catch(function(err){
+        var m='카메라를 열지 못했습니다.';
+        if(err&&(err.name==='NotAllowedError'||err.name==='SecurityError'))
+          m='카메라 권한이 거부되었습니다. 주소창 자물쇠 아이콘에서 카메라를 허용으로 바꾸세요.';
+        else if(err&&err.name==='NotFoundError') m='카메라를 찾지 못했습니다.';
+        else if(err&&err.name==='NotReadableError') m='다른 앱이 카메라를 쓰고 있습니다. 종료 후 다시 시도하세요.';
+        setStatus(m,'crit');
+      });
+  }
+
+  function enableTorch(){
+    torchOn=false;
+    if(!track||!track.getCapabilities) return Promise.resolve();
+    var caps;
+    try{ caps=track.getCapabilities(); }catch(e){ return Promise.resolve(); }
+    if(!caps||!caps.torch) return Promise.resolve();
+    return track.applyConstraints({advanced:[{torch:true}]})
+      .then(function(){ torchOn=true; })
+      .catch(function(){ torchOn=false; });
+  }
+  function disableTorch(){
+    if(track&&torchOn){ try{ track.applyConstraints({advanced:[{torch:false}]}); }catch(e){} }
+    torchOn=false;
+  }
+  function keepAwake(){
+    try{
+      if(navigator.wakeLock&&navigator.wakeLock.request)
+        navigator.wakeLock.request('screen').then(function(w){wake=w;}).catch(function(){});
+    }catch(e){}
+  }
+  function releaseAwake(){ try{ if(wake){wake.release(); wake=null;} }catch(e){} }
+
+  function reset(){
+    buf=[]; bpmHist=[]; curve=null; quality=0; satWarn=false;
+    bpmEl.textContent='--'; bpmEl.className='bpm idle';
+    setMetric(mRpm,null); setMetric(mHrv,null); setMetric(mStress,null);
+    qbar.style.width='0'; qbar.className=''; qtext.textContent='대기 중';
+  }
+
+  function stop(){
+    running=false; measuring=false; bigCount.classList.remove('on');
+    if(raf) cancelAnimationFrame(raf);
+    disableTorch(); releaseAwake();
+    if(stream){ stream.getTracks().forEach(function(t){t.stop();}); stream=null; track=null; }
+    video.srcObject=null;
+    camoff.hidden=false; guide.hidden=true;
+    btnStart.disabled=false; btnMeasure.disabled=true; btnStop.disabled=true;
+    reset(); drawWave();
+    setStatus('카메라를 껐습니다.');
+  }
+
+  /* ================= sampling ================= */
+  function loop(){
+    if(!running) return;
+    raf=requestAnimationFrame(loop);
+    var now=performance.now();
+    if(now-lastSample<1000/FS) return;
+    lastSample=now;
+    if(video.readyState<2) return;
+
+    wctx.drawImage(video,0,0,W,H);
+    var rects=ROIS[roiKey()].rects, r=0,g=0,b=0,n=0,sat=0,k,i,d;
+    for(k=0;k<rects.length;k++){
+      var q=rects[k];
+      try{
+        d=wctx.getImageData(Math.round(W*q[0]),Math.round(H*q[1]),
+                            Math.round(W*q[2]),Math.round(H*q[3])).data;
+      }catch(e){ return; }
+      for(i=0;i<d.length;i+=16){
+        r+=d[i]; g+=d[i+1]; b+=d[i+2]; n++;
+        if(d[i]>=253) sat++;
+      }
+    }
+    if(!n) return;
+    satWarn=(sat/n)>0.45;
+    buf.push({r:r/n,g:g/n,b:b/n,t:now/1000});
+    while(buf.length&&buf[0].t<now/1000-40) buf.shift();
+
+    if(buf.length) liveTxt.textContent='수집 '+(buf[buf.length-1].t-buf[0].t).toFixed(1)+'초';
+    if(now-lastEstimate>700){ lastEstimate=now; live(); }
+    if(now-lastDraw>90){ lastDraw=now; drawWave(); }
+    beatTick(now);
+  }
+
+  /* ================= signal core ================= */
+  function mean(x){var s=0,k;for(k=0;k<x.length;k++)s+=x[k];return s/x.length;}
+  function sd(x){var m=mean(x),s=0,k;for(k=0;k<x.length;k++)s+=(x[k]-m)*(x[k]-m);return Math.sqrt(s/x.length);}
+
+  function resample(tStart,tEnd){
+    var N=Math.round((tEnd-tStart)*FS);
+    if(N<60) return null;
+    var R=new Float64Array(N),G=new Float64Array(N),B=new Float64Array(N),j=0,i;
+    for(i=0;i<N;i++){
+      var t=tStart+i/FS;
+      while(j<buf.length-2&&buf[j+1].t<t) j++;
+      var a=buf[j],c=buf[j+1],dt=c.t-a.t,u=dt>1e-6?(t-a.t)/dt:0;
+      if(u<0)u=0; if(u>1)u=1;
+      R[i]=a.r+(c.r-a.r)*u; G[i]=a.g+(c.g-a.g)*u; B[i]=a.b+(c.b-a.b)*u;
+    }
+    return {R:R,G:G,B:B,N:N};
+  }
+
+  function pos(R,G,B,N){
+    var mR=mean(R),mG=mean(G),mB=mean(B),i;
+    if(mG<12) return null;
+    var S1=new Float64Array(N),S2=new Float64Array(N);
+    for(i=0;i<N;i++){
+      var rn=R[i]/mR,gn=G[i]/mG,bn=B[i]/mB;
+      S1[i]=gn-bn; S2[i]=gn+bn-2*rn;
+    }
+    var s2=sd(S2), al=s2>1e-9?sd(S1)/s2:0, h=new Float64Array(N);
+    for(i=0;i<N;i++) h[i]=S1[i]+al*S2[i];
+    var mh=mean(h);
+    for(i=0;i<N;i++) h[i]-=mh;
+    return h;
+  }
+
+  /* contact PPG: absorption rises with blood volume, so invert */
+  function contact(R,G,N){
+    var useG = mean(R)>248;
+    var src = useG?G:R, h=new Float64Array(N), i;
+    var m=mean(src);
+    for(i=0;i<N;i++) h[i]=-(src[i]-m);
+    return band(h,N,Math.max(1,Math.round(FS*0.04)),Math.round(FS*1.6));
+  }
+
+  function peak(sig,N,f0,f1,step){
+    var win=new Float64Array(N),i;
+    for(i=0;i<N;i++) win[i]=sig[i]*(0.5-0.5*Math.cos(2*Math.PI*i/(N-1)));
+    var bf=0,bp=-1,tot=0,spec=[],f;
+    for(f=f0;f<=f1+1e-9;f+=step){
+      var re=0,im=0,k=2*Math.PI*f/FS;
+      for(i=0;i<N;i++){ var a=k*i; re+=win[i]*Math.cos(a); im+=win[i]*Math.sin(a); }
+      var p=re*re+im*im;
+      spec.push([f,p]); tot+=p;
+      if(p>bp){bp=p;bf=f;}
+    }
+    if(tot<=0) return null;
+    var bw=(f1-f0)*0.06, near=0;
+    for(i=0;i<spec.length;i++) if(Math.abs(spec[i][0]-bf)<bw) near+=spec[i][1];
+    return {f:bf, share:near/tot};
+  }
+
+  function band(sig,N,smoothN,driftN){
+    var sm=new Float64Array(N),out=new Float64Array(N),i,k,s,c;
+    for(i=0;i<N;i++){
+      s=0;c=0;
+      for(k=Math.max(0,i-smoothN);k<=Math.min(N-1,i+smoothN);k++){s+=sig[k];c++;}
+      sm[i]=s/c;
+    }
+    for(i=0;i<N;i++){
+      s=0;c=0;
+      for(k=Math.max(0,i-driftN);k<=Math.min(N-1,i+driftN);k++){s+=sig[k];c++;}
+      out[i]=sm[i]-s/c;
+    }
+    return out;
+  }
+
+  function beats(sig,N,bpm){
+    var period=FS*60/bpm, minD=Math.max(4,Math.round(period*0.55));
+    var f=band(sig,N,Math.max(1,Math.round(FS*0.05)),Math.round(period*0.9));
+    var pk=[],i,k,ok;
+    for(i=1;i<N-1;i++){
+      if(f[i]<=0) continue;
+      if(!(f[i]>=f[i-1]&&f[i]>=f[i+1])) continue;
+      ok=true;
+      for(k=Math.max(0,i-minD);k<=Math.min(N-1,i+minD);k++) if(f[k]>f[i]){ok=false;break;}
+      if(!ok) continue;
+      var den=f[i-1]-2*f[i]+f[i+1], off=den!==0?0.5*(f[i-1]-f[i+1])/den:0;
+      if(off<-1||off>1) off=0;
+      if(pk.length&&(i+off)-pk[pk.length-1]<minD) continue;
+      pk.push(i+off);
+    }
+    if(pk.length<5) return null;
+    var ib=[],i2;
+    for(i2=1;i2<pk.length;i2++) ib.push((pk[i2]-pk[i2-1])/FS*1000);
+    var s=ib.slice().sort(function(a,b){return a-b;}), med=s[Math.floor(s.length/2)];
+    var keep=ib.filter(function(v){return v>med*0.72&&v<med*1.28;});
+    if(keep.length<4) return null;
+    var sum=0,cnt=0;
+    for(i2=1;i2<keep.length;i2++){ var dd=keep[i2]-keep[i2-1]; sum+=dd*dd; cnt++; }
+    return {beats:pk.length, sdnn:sd(keep), rmssd:cnt?Math.sqrt(sum/cnt):null};
+  }
+
+  function analyze(tStart,tEnd){
+    if(!buf.length) return null;
+    if(buf[0].t>tStart) tStart=buf[0].t;
+    var rs=resample(tStart,tEnd);
+    if(!rs) return null;
+
+    var h, mo;
+    if(mode==='finger'){
+      if(mean(rs.R)<40) return {noFinger:true};
+      h=contact(rs.R,rs.G,rs.N);
+      mo=0;
+    }else{
+      h=pos(rs.R,rs.G,rs.B,rs.N);
+      if(!h) return {dark:true};
+      var mG=mean(rs.G),dd=0,i;
+      for(i=1;i<rs.N;i++) dd+=Math.abs(rs.G[i]-rs.G[i-1]);
+      mo=dd/((rs.N-1)*mG);
+    }
+
+    var hr=peak(h,rs.N,0.70,3.00,0.01);
+    if(!hr) return null;
+    var q=Math.max(0,Math.min(1,(hr.share-(mode==='finger'?0.14:0.10))/0.32));
+    if(mo>0.006) q*=0.45;
+
+    var out={bpm:hr.f*60, q:q, motion:mo, sig:h, N:rs.N, dur:rs.N/FS};
+
+    if(rs.N>=FS*8){
+      var slow = mode==='finger'
+        ? band(rs.R,rs.N,Math.round(FS*0.4),Math.round(FS*5))
+        : band(rs.G,rs.N,Math.round(FS*0.4),Math.round(FS*5));
+      var rp=peak(slow,rs.N,0.13,0.50,0.004);
+      if(rp&&rp.share>0.12){ out.rpm=rp.f*60; }
+    }
+    if(q>=(mode==='finger'?0.25:0.32)){
+      var bt=beats(h,rs.N,out.bpm);
+      if(bt&&bt.rmssd){
+        out.rmssd=bt.rmssd; out.sdnn=bt.sdnn;
+        out.stress=Math.max(5,Math.min(95,Math.round(100-1.1*bt.rmssd)));
+      }
+    }
+    return out;
+  }
+
+  /* ================= readout ================= */
+  function setMetric(el,val,unit){
+    if(val===null||val===undefined||!isFinite(val)){ el.textContent='—'; el.className='na'; return; }
+    el.className='';
+    el.innerHTML=val+(unit?'<small>'+unit+'</small>':'');
+  }
+
+  function live(){
+    if(!buf.length) return;
+    var tEnd=buf[buf.length-1].t, have=tEnd-buf[0].t-0.2;
+    if(have<5){ qtext.textContent='신호 수집 중'; return; }
+    var e=analyze(tEnd-Math.min(LIVEWIN,have),tEnd);
+    if(!e){ qtext.textContent='신호 수집 중'; return; }
+    if(e.dark){ setStatus('너무 어둡습니다. 밝은 곳으로 가거나 창을 마주보세요.','warn'); qtext.textContent='조도 부족'; return; }
+    if(e.noFinger){ setStatus('손끝이 렌즈를 덮지 않았습니다. 화면이 붉게 차도록 살짝 얹으세요.','warn'); qtext.textContent='손가락 없음'; return; }
+
+    curve=e.sig; quality=e.q;
+    qbar.style.width=Math.round(e.q*100)+'%';
+    qbar.className=e.q<0.34?'low':(e.q<0.62?'mid':'');
+    qtext.textContent=e.q<0.34?'낮음':(e.q<0.62?'보통':'양호');
+
+    if(e.q>=0.32){
+      bpmHist.push(e.bpm);
+      if(bpmHist.length>7) bpmHist.shift();
+      var s=bpmHist.slice().sort(function(a,b){return a-b;});
+      bpmEl.textContent=Math.round(s[Math.floor(s.length/2)]);
+      bpmEl.className='bpm';
+      setMetric(mRpm, e.rpm?Math.round(e.rpm):null,'회/분');
+      setMetric(mHrv, e.rmssd?Math.round(e.rmssd):null,'ms');
+      setMetric(mStress, e.stress!==undefined?e.stress:null);
+    }else if(!bpmHist.length){ bpmEl.textContent='--'; bpmEl.className='bpm idle'; }
+
+    if(measuring) return;
+    if(mode==='finger'&&satWarn) setStatus('너무 밝거나 세게 누르고 있습니다. 힘을 빼고 살짝만 얹으세요.','warn');
+    else if(e.motion>0.006) setStatus('움직임이 감지됩니다. 폰과 머리를 고정하세요.','warn');
+    else if(e.q<0.34) setStatus('신호가 약합니다. '+(mode==='finger'?'손끝 위치와 누르는 힘을 조절하세요.':ROIS[roiKey()].label+' 위치를 맞춰 주세요.'),'warn');
+    else setStatus('신호 양호. 측정 시작을 누르세요.');
+  }
+
+  function beatTick(now){
+    if(!bpmHist.length||quality<0.32) return;
+    var bpm=parseFloat(bpmEl.textContent);
+    if(!bpm) return;
+    if(now-lastBeat>60000/bpm){
+      lastBeat=now; heartEl.classList.add('beat');
+      setTimeout(function(){heartEl.classList.remove('beat');},110);
+    }
+  }
+
+  /* ================= waveform ================= */
+  function drawWave(){
+    var dpr=window.devicePixelRatio||1, cssW=waveCv.clientWidth||900, cssH=96;
+    if(waveCv.width!==Math.round(cssW*dpr)){ waveCv.width=Math.round(cssW*dpr); waveCv.height=Math.round(cssH*dpr); }
+    var c=wctx2,w=waveCv.width,h=waveCv.height,i;
+    c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,w,h);
+    c.strokeStyle=tok('--grid'); c.lineWidth=1*dpr;
+    for(i=1;i<4;i++){ var y=h*i/4; c.beginPath(); c.moveTo(0,y); c.lineTo(w,y); c.stroke(); }
+
+    var src=null,raw=false;
+    if(curve&&curve.length>=10&&quality>=0.10){
+      src=curve.subarray(Math.max(0,curve.length-FS*6));
+    }else if(running&&buf.length>=20){
+      var m=Math.min(buf.length,FS*6),tmp=new Float64Array(m),s0=0;
+      for(i=0;i<m;i++){ tmp[i]=mode==='finger'?-buf[buf.length-m+i].r:buf[buf.length-m+i].g; s0+=tmp[i]; }
+      s0/=m; for(i=0;i<m;i++) tmp[i]-=s0;
+      src=tmp; raw=true;
+    }
+    if(!src){
+      c.fillStyle=tok('--ink-3'); c.font=(12*dpr)+'px sans-serif';
+      c.textAlign='center'; c.textBaseline='middle';
+      c.fillText('카메라를 켜면 파형이 표시됩니다',w/2,h/2);
+      return;
+    }
+    plot(c,src,w,h,raw?tok('--ink-3'):tok('--accent'),raw?0.55:(quality<0.34?0.45:1),2*dpr);
+    waveCap.textContent=raw?'원시 신호 — 맥파 분리 대기 중'
+      :'맥파 파형 — 최근 6초'+(quality<0.34?' · 신뢰도 낮음':'');
+  }
+
+  function plot(c,src,w,h,color,alpha,lw){
+    var n=src.length,mn=Infinity,mx=-Infinity,i;
+    for(i=0;i<n;i++){ if(src[i]<mn)mn=src[i]; if(src[i]>mx)mx=src[i]; }
+    var rng=(mx-mn)||1,pad=h*0.16;
+    c.beginPath();
+    for(i=0;i<n;i++){
+      var x=w*i/(n-1), y=h-pad-((src[i]-mn)/rng)*(h-pad*2);
+      i?c.lineTo(x,y):c.moveTo(x,y);
+    }
+    c.strokeStyle=color; c.lineWidth=lw; c.lineJoin='round'; c.lineCap='round';
+    c.globalAlpha=alpha; c.stroke(); c.globalAlpha=1;
+  }
+
+  /* ================= measurement ================= */
+  function measure(){
+    if(!running||measuring) return;
+    cardPanel.hidden=true;
+    measuring=true;
+    measureStartT=buf.length?buf[buf.length-1].t:performance.now()/1000;
+    measureEnd=performance.now()+DUR*1000;
+    bigCount.classList.add('on');
+    btnMeasure.disabled=true;
+    setStatus('측정 중입니다. 움직이지 마세요.');
+    tickCount();
+  }
+  function tickCount(){
+    if(!measuring) return;
+    var left=Math.max(0,Math.ceil((measureEnd-performance.now())/1000));
+    bigCount.textContent=left;
+    if(left<=0){ finish(); return; }
+    setTimeout(tickCount,200);
+  }
+  function finish(){
+    measuring=false; bigCount.classList.remove('on'); btnMeasure.disabled=false;
+    var tEnd=buf.length?buf[buf.length-1].t:0;
+    var e=analyze(measureStartT,tEnd);
+    if(!e||e.dark||e.noFinger||e.q<0.26||!isFinite(e.bpm)){
+      setStatus('신뢰할 만한 신호가 모이지 않아 기록하지 않았습니다. 자세와 조명을 바꿔 다시 시도하세요.','warn');
+      return;
+    }
+    var r={
+      time:new Date(), mode:mode,
+      how: mode==='finger'?'손가락':('얼굴 · '+ROIS[roiKey()].label),
+      bpm:Math.round(e.bpm),
+      rpm:e.rpm?Math.round(e.rpm):null,
+      rmssd:e.rmssd?Math.round(e.rmssd):null,
+      sdnn:e.sdnn?Math.round(e.sdnn):null,
+      stress:e.stress!==undefined?e.stress:null,
+      q:e.q, dur:e.dur, sig:e.sig
+    };
+    r.ok = r.q>=0.5 && r.bpm>=50 && r.bpm<=110;
+    addLog(r); makeCard(r);
+    setStatus('측정 완료. 아래 결과 카드를 저장하실 수 있습니다.');
+  }
+
+  function addLog(r){
+    logEmpty.hidden=true;
+    var p=function(v){return String(v).padStart(2,'0');};
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+p(r.time.getHours())+':'+p(r.time.getMinutes())+'</td>'
+      +'<td>'+(r.mode==='finger'?'손가락':'얼굴')+'</td>'
+      +'<td class="num">'+r.bpm+'</td>'
+      +'<td class="num">'+(r.rpm!==null?r.rpm:'—')+'</td>'
+      +'<td class="num">'+(r.rmssd!==null?r.rmssd:'—')+'</td>'
+      +'<td><span class="tag '+(r.ok?'ok':'re')+'">'+(r.ok?'정상':'재측정')+'</span></td>';
+    logEl.insertBefore(tr,logEl.firstChild);
+  }
+
+  /* ================= result card (portrait) ================= */
+  var CW=1000, CH=1440, M=48;
+  var K_INK='#141D1A',K_INK2='#5A6862',K_INK3='#8A9893',
+      K_LINE='#DDE4E1',K_SOFT='#F2F6F4',K_ACC='#0E7C66',K_WARN='#A8620B';
+  var FONT='"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",sans-serif';
+
+  function rr(c,x,y,w,h,r){
+    if(c.roundRect){ c.beginPath(); c.roundRect(x,y,w,h,r); return; }
+    c.beginPath(); c.moveTo(x+r,y);
+    c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
+    c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
+  }
+
+  function makeCard(r){
+    var cv=document.createElement('canvas'); cv.width=CW; cv.height=CH;
+    var c=cv.getContext('2d'), colW=CW-M*2;
+    c.fillStyle='#FFFFFF'; c.fillRect(0,0,CW,CH);
+
+    var p=function(v){return String(v).padStart(2,'0');}, d=r.time;
+    c.fillStyle=K_INK; c.font='800 40px '+FONT; c.textBaseline='alphabetic';
+    c.fillText('현장 컨디션 체크', M, 92);
+    c.fillStyle=K_INK3; c.font='20px '+FONT;
+    c.fillText(d.getFullYear()+'.'+p(d.getMonth()+1)+'.'+p(d.getDate())+'  '+p(d.getHours())+':'+p(d.getMinutes())
+      +'   ·   '+r.how+'   ·   '+r.dur.toFixed(0)+'초', M, 130);
+
+    var pillW=r.ok?128:150;
+    rr(c,CW-M-pillW,58,pillW,42,21);
+    c.fillStyle=r.ok?'#E3F2EC':'#F6EDE0'; c.fill();
+    c.fillStyle=r.ok?K_ACC:K_WARN; c.font='800 19px '+FONT;
+    c.textAlign='center'; c.textBaseline='middle';
+    c.fillText(r.ok?'정상 범위':'재측정 권고', CW-M-pillW/2, 79);
+    c.textAlign='left'; c.textBaseline='alphabetic';
+
+    /* photo */
+    var py=168, ph=520;
+    c.save(); rr(c,M,py,colW,ph,18); c.clip();
+    c.fillStyle='#0B100E'; c.fillRect(M,py,colW,ph);
+    var vw=video.videoWidth||480, vh=video.videoHeight||640, want=colW/ph, sw,sh;
+    if(vw/vh>want){ sh=vh; sw=vh*want; } else { sw=vw; sh=vw/want; }
+    var sx=(vw-sw)/2, sy=(vh-sh)/2;
+    if(r.mode==='face'){ c.translate(M+colW,py); c.scale(-1,1); }
+    else { c.translate(M,py); }
+    try{ c.drawImage(video,sx,sy,sw,sh,0,0,colW,ph); }catch(e){}
+    c.restore();
+    c.save(); rr(c,M,py,colW,ph,18); c.clip();
+    c.fillStyle='rgba(0,0,0,.55)'; c.fillRect(M,py+ph-62,colW,62);
+    c.fillStyle='#FFF'; c.font='600 19px '+FONT; c.textBaseline='middle';
+    c.fillText(r.mode==='finger'?'손끝 캡처':'측정 시점 캡처', M+20, py+ph-40);
+    c.fillStyle='rgba(255,255,255,.75)'; c.font='14px '+FONT;
+    c.fillText('이 이미지는 기기 밖으로 전송되지 않습니다', M+20, py+ph-17);
+    c.restore();
+    c.textBaseline='alphabetic';
+
+    /* BPM */
+    var by=832;
+    c.fillStyle=K_INK; c.font='800 128px '+FONT;
+    c.fillText(String(r.bpm), M, by);
+    var bw=c.measureText(String(r.bpm)).width;
+    c.fillStyle=K_INK3; c.font='800 30px '+FONT;
+    c.fillText('BPM', M+bw+16, by-8);
+    c.fillStyle=K_INK2; c.font='18px '+FONT;
+    c.fillText('분당 심박수', M, by+32);
+
+    /* metrics */
+    var boxes=[
+      {k:'호흡수', v:r.rpm!==null?String(r.rpm):'—', u:r.rpm!==null?'회/분':''},
+      {k:'HRV RMSSD', v:r.rmssd!==null?String(r.rmssd):'—', u:r.rmssd!==null?'ms':''},
+      {k:'긴장도 지수', v:r.stress!==null?String(r.stress):'—', u:r.stress!==null?'/100':''}
+    ];
+    var byy=880, bwid=(colW-24)/3, bhei=112, i;
+    for(i=0;i<3;i++){
+      var ox=M+i*(bwid+12);
+      rr(c,ox,byy,bwid,bhei,13); c.fillStyle=K_SOFT; c.fill();
+      c.strokeStyle=K_LINE; c.lineWidth=1; c.stroke();
+      c.fillStyle=K_INK3; c.font='700 15px '+FONT;
+      c.fillText(boxes[i].k, ox+16, byy+32);
+      c.fillStyle=boxes[i].v==='—'?K_INK3:K_INK; c.font='800 38px '+FONT;
+      c.fillText(boxes[i].v, ox+16, byy+84);
+      if(boxes[i].u){
+        var vwid=c.measureText(boxes[i].v).width;
+        c.fillStyle=K_INK3; c.font='700 15px '+FONT;
+        c.fillText(boxes[i].u, ox+16+vwid+8, byy+84);
+      }
+    }
+
+    /* reliability */
+    var ry=1058;
+    c.fillStyle=K_INK3; c.font='700 15px '+FONT;
+    c.fillText('신호 신뢰도', M, ry-12);
+    c.textAlign='right'; c.fillStyle=r.q<0.5?K_WARN:K_ACC;
+    c.fillText(Math.round(r.q*100)+'%  '+(r.q<0.34?'낮음':(r.q<0.62?'보통':'양호')), CW-M, ry-12);
+    c.textAlign='left';
+    rr(c,M,ry,colW,11,6); c.fillStyle='#E9EFEC'; c.fill();
+    rr(c,M,ry,Math.max(11,colW*r.q),11,6); c.fillStyle=r.q<0.5?K_WARN:K_ACC; c.fill();
+
+    /* waveform */
+    var wy=1112, whgt=150;
+    rr(c,M,wy,colW,whgt,13); c.fillStyle=K_SOFT; c.fill();
+    c.save(); rr(c,M,wy,colW,whgt,13); c.clip();
+    c.strokeStyle='#E4EBE8'; c.lineWidth=1;
+    for(i=1;i<3;i++){ c.beginPath(); c.moveTo(M,wy+whgt*i/3); c.lineTo(M+colW,wy+whgt*i/3); c.stroke(); }
+    c.translate(M,wy);
+    plot(c,r.sig.subarray(Math.max(0,r.sig.length-FS*8)),colW,whgt,K_ACC,1,2.6);
+    c.restore();
+    c.strokeStyle=K_LINE; c.lineWidth=1; rr(c,M,wy,colW,whgt,13); c.stroke();
+    c.fillStyle=K_INK3; c.font='14px '+FONT;
+    c.fillText('맥파 파형 — 최근 8초', M+2, wy+whgt+26);
+
+    /* footer */
+    c.strokeStyle=K_LINE; c.lineWidth=1;
+    c.beginPath(); c.moveTo(M,CH-108); c.lineTo(CW-M,CH-108); c.stroke();
+    c.fillStyle=K_INK3; c.font='15px '+FONT;
+    c.fillText('의료기기가 아닙니다 · 선별 참고용', M, CH-76);
+    c.fillText(r.mode==='finger'
+      ? '손가락 접촉 PPG · 체온·혈압·산소포화도는 측정되지 않습니다'
+      : '얼굴 영상 rPPG · 15초 측정이라 RMSSD는 참고값입니다', M, CH-48);
+
+    var url=cv.toDataURL('image/png');
+    cardImg.src=url; btnSave.href=url;
+    btnSave.download='컨디션체크_'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+'.png';
+    cardPanel.hidden=false;
+    cardPanel.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  /* ================= UI wiring ================= */
+  function setMode(m){
+    if(mode===m||measuring) return;
+    mode=m;
+    tabFace.classList.toggle('on',m==='face');
+    tabFinger.classList.toggle('on',m==='finger');
+    segFaceWrap.hidden=(m!=='face');
+    oval.hidden=(m!=='face');
+    roiFinger.hidden=(m!=='finger');
+    roiF.hidden=(m!=='face'||roiMode!=='forehead');
+    roiC.hidden=(m!=='face'||roiMode!=='cheeks');
+    cardPanel.hidden=true;
+    var was=running;
+    if(was){ stop(); setTimeout(start,250); }
+    else setStatus(m==='finger'
+      ? '카메라를 켜면 플래시가 켜집니다. 후면 렌즈에 손끝을 살짝 얹으세요.'
+      : '얼굴이 타원 안에 들어오게 맞추고 밝은 곳에서 측정하세요.');
+  }
+  function setRoi(mm){
+    if(roiMode===mm||measuring) return;
+    roiMode=mm;
+    segF.classList.toggle('on',mm==='forehead');
+    segC.classList.toggle('on',mm==='cheeks');
+    roiF.hidden=(mm!=='forehead'); roiC.hidden=(mm!=='cheeks');
+    reset();
+    if(running) setStatus('측정 부위를 '+ROIS[mm].label+'로 바꿨습니다. 신호를 다시 모으는 중입니다.');
+  }
+  function setDur(v){
+    if(measuring) return;
+    DUR=v; bigCount.textContent=v;
+    seg15.classList.toggle('on',v===15);
+    seg30.classList.toggle('on',v===30);
+  }
+
+  tabFace.addEventListener('click',function(){setMode('face');});
+  tabFinger.addEventListener('click',function(){setMode('finger');});
+  segF.addEventListener('click',function(){setRoi('forehead');});
+  segC.addEventListener('click',function(){setRoi('cheeks');});
+  seg15.addEventListener('click',function(){setDur(15);});
+  seg30.addEventListener('click',function(){setDur(30);});
+  btnStart.addEventListener('click',start);
+  btnStop.addEventListener('click',stop);
+  btnMeasure.addEventListener('click',measure);
+  btnAgain.addEventListener('click',function(){ cardPanel.hidden=true; measure(); });
+  window.addEventListener('resize',drawWave);
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden&&running&&!measuring) return;
+    if(!document.hidden&&running) keepAwake();
+  });
+  drawWave();
+})();
+</script>
+</body>
+</html>
