@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <meta name="theme-color" content="#EA002C">
 <title>구성원 컨디션 체크</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 40 40%27%3E%3Cpath d=%27M4 26c6-13 16-19 32-20-3 11-11 17-20 18 7 1 12 0 16-2-5 8-16 12-28 4z%27 fill=%27%23EA002C%27/%3E%3Cpath d=%27M8 33c7-4 16-5 25-3-6 6-17 8-25 3z%27 fill=%27%23FAA61A%27/%3E%3C/svg%3E">
 <style>
 :root{
   --bg:#F7F4F4; --surface:#FFFFFF; --surface-2:#F0EAEB;
@@ -92,21 +93,25 @@ input#who:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .stage{position:relative;border-radius:14px;overflow:hidden;background:#0A0708;
   width:min(100%, calc(46vh * var(--arn, .75))); aspect-ratio:var(--ar, 3/4);}
 video{width:100%;height:100%;object-fit:contain;display:block;background:#0A0708}
-video.mirror{transform:scaleX(-1)}
+.mirror{transform:scaleX(-1)}
+canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .guide{position:absolute;inset:0;pointer-events:none}
-.frame{position:absolute;left:13%;top:7%;right:13%;bottom:28%}
-.frame i{position:absolute;width:32px;height:32px;border:3px solid rgba(255,255,255,.85);
+.frame{position:absolute;left:13%;top:7%;right:13%;bottom:26%}
+.frame i{position:absolute;width:32px;height:32px;border:3px solid rgba(255,255,255,.8);
   border-radius:4px;transition:border-color .3s}
 .frame i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0}
 .frame i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0}
 .frame i:nth-child(3){left:0;bottom:0;border-right:0;border-top:0}
 .frame i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0}
 .frame.good i{border-color:#3EE0A8}
-.roi{position:absolute;border:2px solid #FF5470;border-radius:5px;background:rgba(234,0,44,.15)}
-.roi span{position:absolute;left:0;bottom:calc(100% + 4px);font-size:10.5px;font-weight:700;color:#fff;
-  text-shadow:0 1px 3px rgba(0,0,0,.9);white-space:nowrap}
-.live{position:absolute;left:9px;top:9px;display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;
-  color:#fff;background:rgba(0,0,0,.55);padding:4px 9px;border-radius:999px;font-variant-numeric:tabular-nums}
+.frame.tracking i{opacity:.35}
+.hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);max-width:88%;
+  font-size:12.5px;font-weight:700;color:#fff;background:rgba(0,0,0,.6);padding:6px 12px;
+  border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .25s}
+.hint.ok{background:rgba(15,122,87,.88)}
+.hint.warn{background:rgba(143,82,0,.9)}
+.live{position:absolute;left:9px;bottom:70px;display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;
+  color:#fff;background:rgba(0,0,0,.5);padding:4px 9px;border-radius:999px;font-variant-numeric:tabular-nums}
 .live i{width:6px;height:6px;border-radius:50%;background:#FF5470;display:block}
 .vwave{position:absolute;left:0;right:0;bottom:5px;height:58px;pointer-events:none;
   background:linear-gradient(to top,rgba(0,0,0,.6),rgba(0,0,0,0))}
@@ -118,9 +123,14 @@ canvas#wave{display:block;width:100%;height:58px}
 .camoff>div{text-align:center;max-width:30ch}
 .camoff b{color:#fff}
 .bigcount{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
-  background:rgba(0,0,0,.42);color:#fff;font-size:84px;font-weight:800;font-variant-numeric:tabular-nums;
+  background:rgba(0,0,0,.38);color:#fff;font-size:84px;font-weight:800;font-variant-numeric:tabular-nums;
   text-shadow:0 2px 16px rgba(0,0,0,.7)}
 .bigcount.on{display:flex}
+
+.engine{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11.5px;color:var(--ink-3);font-weight:700}
+.engine i{width:7px;height:7px;border-radius:50%;background:var(--ink-3);flex:none}
+.engine.pro i{background:var(--ok)}
+.engine.basic i{background:var(--sk-orange)}
 
 /* ---- metric tiles ---- */
 .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}
@@ -136,7 +146,8 @@ canvas#wave{display:block;width:100%;height:58px}
 .tile .val small{font-size:11px;font-weight:700;color:var(--ink-3);margin-left:3px}
 .tile .val.na{color:var(--ink-3);font-size:20px}
 .tile.wide .val.na{font-size:30px}
-.tile .sub{margin-top:2px;font-size:10.5px;font-weight:700;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.tile .sub{margin-top:2px;font-size:10.5px;font-weight:700;color:var(--ink-3);font-variant-numeric:tabular-nums;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tile .sub.hi{color:var(--orange-ink)}
 .qring{height:5px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:7px}
 .qring i{display:block;height:100%;width:0;background:var(--ok);border-radius:3px;transition:width .3s}
@@ -171,7 +182,6 @@ summary::after{content:"▾";color:var(--ink-3);font-size:12px}
 details[open] summary::after{content:"▴"}
 .dbody{padding:0 11px 11px}
 details:not(.selfbox) .dbody{padding:0 13px 13px}
-
 table{width:100%;border-collapse:collapse;font-size:12.5px}
 th,td{text-align:left;padding:7px 5px;border-bottom:1px solid var(--line);white-space:nowrap}
 th{font-size:10px;color:var(--ink-3);font-weight:700}
@@ -215,10 +225,6 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       <button type="button" id="tabFinger">손가락으로 측정</button>
     </div>
     <div class="chips">
-      <button type="button" id="segF" class="on">이마</button>
-      <button type="button" id="segC">양 볼·안전모</button>
-    </div>
-    <div class="chips">
       <button type="button" id="seg10" class="on">10초</button>
       <button type="button" id="seg15">15초</button>
       <button type="button" id="seg30">30초 정밀</button>
@@ -247,18 +253,10 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     <div class="stagewrap">
       <div class="stage" id="stage">
         <video id="cam" playsinline muted autoplay></video>
+        <canvas id="ov"></canvas>
         <div class="guide" id="guide" hidden>
           <div class="frame" id="frame"><i></i><i></i><i></i><i></i></div>
-          <div id="roiF">
-            <div class="roi" style="left:30%;top:22%;width:40%;height:13%"><span>이마</span></div>
-          </div>
-          <div id="roiC" hidden>
-            <div class="roi" style="left:16%;top:44%;width:20%;height:14%"><span>볼(좌)</span></div>
-            <div class="roi" style="left:64%;top:44%;width:20%;height:14%"><span>볼(우)</span></div>
-          </div>
-          <div id="roiFinger" hidden>
-            <div class="roi" style="left:28%;top:30%;width:44%;height:28%"><span>손끝으로 렌즈를 덮으세요</span></div>
-          </div>
+          <div class="hint" id="hint">준비 중</div>
           <div class="live"><i></i><span id="liveTxt">0.0초</span></div>
         </div>
         <div class="vwave"><canvas id="wave" width="900" height="116"></canvas></div>
@@ -267,6 +265,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
         <div class="bigcount" id="bigCount">10</div>
       </div>
     </div>
+    <div class="engine" id="engineTag"><i></i><span id="engineTxt">분석 엔진 준비 중…</span></div>
 
     <div class="tiles">
       <div class="tile wide">
@@ -287,6 +286,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       <div class="tile">
         <div class="lab">HRV RMSSD</div>
         <div class="val na" id="mHrv">—</div>
+        <div class="sub" id="hrvWhy">&nbsp;</div>
       </div>
       <div class="tile">
         <div class="lab">긴장도</div>
@@ -299,7 +299,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       <button id="btnMeasure" class="primary" style="flex:2" hidden>측정 시작</button>
       <button id="btnStop" style="flex:1" hidden>중지</button>
     </div>
-    <p class="status" id="status">얼굴이 화면 안에 들어오게 맞추고, 밝은 곳에서 움직이지 않은 채 측정하세요.</p>
+    <p class="status" id="status">얼굴 전체가 화면 안에 들어오게 맞추고, 밝은 곳에서 움직이지 않은 채 측정하세요.</p>
 
     <div class="irr" id="irrBanner" hidden>
       <b>박동이 불규칙하게 나왔습니다</b>
@@ -334,91 +334,618 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     <summary>읽는 법 · 한계</summary>
     <div class="dbody">
       <div class="note">
+        <h3>어떻게 재나</h3>
+        <ul>
+          <li>얼굴의 <b>특징점 478개</b>를 실시간으로 추적해 <b>이마·양 볼 세 부위</b>에서 피부 픽셀만 골라 읽습니다. 눈썹·머리카락·안전모는 자동으로 제외됩니다.</li>
+          <li>세 부위의 신호를 <b>신호 품질에 따라 가중 합산</b>합니다. 세 곳이 같은 심박을 가리킬 때만 신뢰도가 올라갑니다.</li>
+          <li>측정이 시작되면 <b>카메라 노출을 고정</b>합니다. 자동 밝기 조절이 맥박 신호를 흔들기 때문입니다.</li>
+        </ul>
+      </div>
+      <div class="note">
         <h3>측정 시간</h3>
         <ul>
-          <li>숫자는 <b>분석에 쓰는 시간</b>입니다. 카메라를 켜둔 동안 신호가 계속 쌓이므로, <b>이미 모인 만큼은 차감</b>되고 부족한 시간만 카운트다운합니다. 자세를 잡고 잠시 기다렸다면 실제 대기는 2~3초입니다.</li>
-          <li><b>10초</b> — 심박수·호흡수가 나옵니다. 일상 체크의 기본값.</li>
-          <li><b>15초</b> — 호흡수가 더 안정됩니다.</li>
-          <li><b>30초</b> — HRV와 박동 규칙성 판정까지. 손가락 측정과 함께 쓰세요.</li>
-          <li>흔들려서 신호가 끊기면 모인 시간은 <b>0으로 초기화</b>됩니다. 정직하게 다시 셉니다.</li>
+          <li>숫자는 <b>분석에 쓰는 시간</b>입니다. 카메라를 켜둔 동안 깨끗하게 모인 신호는 차감되고 부족한 만큼만 카운트다운합니다.</li>
+          <li><b>10초</b> — 심박수·호흡수. <b>15초</b> — 호흡수·HRV가 더 안정. <b>30초</b> — HRV와 박동 규칙성까지.</li>
         </ul>
       </div>
       <div class="note">
         <h3>평소 대비 비교</h3>
         <ul>
           <li>같은 이름으로 3회 이상 재면 <b>본인 평소값</b>이 잡히고 "평소 68 · +14" 로 표시됩니다.</li>
-          <li>절대 기준(50~110)보다 훨씬 민감합니다. 평소 55인 사람의 75는 정상 범위지만 본인에겐 이상 신호입니다.</li>
           <li>저장은 <b>이 폰 이 브라우저 안에만</b> 됩니다. 서버로 가지 않고, 삭제 버튼으로 언제든 지웁니다.</li>
-        </ul>
-      </div>
-      <div class="note">
-        <h3>얼굴 · 손가락</h3>
-        <ul>
-          <li><b>안전모를 쓴 채로도</b> 됩니다 — 이마가 가려지면 <b>양 볼</b>로 바꾸세요.</li>
-          <li>모서리 표시가 <b>초록색으로 바뀌면</b> 신호가 잘 잡히고 있다는 뜻입니다.</li>
-          <li>손가락은 신호가 강해 HRV를 믿을 수 있습니다. 렌즈를 <b>살짝 덮는 정도</b>로.</li>
         </ul>
       </div>
       <div class="note">
         <h3>한계</h3>
         <ul>
           <li><b>의료기기가 아닙니다.</b> 진단용이 아니라 "평소와 다른가"를 보는 선별 도구입니다.</li>
-          <li><b>체온·혈압·산소포화도는 측정되지 않습니다.</b> 센서가 없어 원리상 불가합니다.</li>
+          <li><b>체온·혈압·산소포화도는 측정되지 않습니다.</b> 일반 카메라에는 그 센서가 없습니다.</li>
           <li>박동 규칙성은 <b>손가락 30초</b>에서만 판정하며, 화면에만 표시되고 저장 카드에는 남지 않습니다.</li>
-          <li>영상과 측정값은 <b>기기 밖으로 전송되지 않습니다.</b></li>
+          <li>영상과 측정값은 <b>기기 밖으로 전송되지 않습니다.</b> 얼굴 추적도 폰 안에서 처리됩니다.</li>
         </ul>
       </div>
     </div>
   </details>
 
   <footer>
-    얼굴: POS 알고리즘으로 맥파 분리 후 주파수 분석 · 손가락: 적색 채널 흡광 변화 직접 이용.
-    42–180 BPM 대역에서 심박수, 8–30회/분 대역에서 호흡수를 추정하고, 맥파 피크 간격에서 RMSSD와 박동 규칙성을 산출합니다.
+    얼굴 특징점 추적(MediaPipe Face Landmarker) · POS 알고리즘(Wang 외, IEEE TBME 2017) · 버터워스 대역필터 · Welch 스펙트럼 · SNR 가중 3부위 융합 ·
+    박동 템플릿 정합으로 HRV 산출 · 호흡은 심박변동·맥파 크기·기준선·머리 움직임 4경로 융합.
   </footer>
 </div>
 
 <script>
+/* =====================================================================
+   구성원 컨디션 체크 — signal engine
+   Pure DSP, no DOM. Shared by the page and the offline test harness.
+   ===================================================================== */
+(function(root){
+  "use strict";
+  var FS = 30;                       // analysis sample rate (Hz)
+
+  function mean(x,a,b){ a=a||0; b=(b==null)?x.length:b; var s=0; for(var i=a;i<b;i++) s+=x[i]; return s/Math.max(1,b-a); }
+  function sd(x){ var m=mean(x),s=0; for(var i=0;i<x.length;i++) s+=(x[i]-m)*(x[i]-m); return Math.sqrt(s/Math.max(1,x.length)); }
+  function median(a){ if(!a.length) return NaN; var s=Array.prototype.slice.call(a).sort(function(p,q){return p-q;}); var h=s.length>>1; return s.length%2?s[h]:(s[h-1]+s[h])/2; }
+  function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+
+  /* ---------- uniform resampling of irregular camera timestamps ---------- */
+  function resample(ts, ys, t0, t1, fs){
+    var N=Math.floor((t1-t0)*fs); if(N<2) return null;
+    var out=new Float64Array(N), j=0;
+    for(var i=0;i<N;i++){
+      var t=t0+i/fs;
+      while(j<ts.length-2 && ts[j+1]<t) j++;
+      var ta=ts[j], tb=ts[j+1], u=(tb>ta)?(t-ta)/(tb-ta):0;
+      out[i]=ys[j]+(ys[j+1]-ys[j])*clamp(u,0,1);
+    }
+    return out;
+  }
+
+  /* ---------- POS (Wang, den Brinker, Stuijk, de Haan 2017) with overlap-add ----------
+     Temporal normalisation inside short windows is what makes POS robust to slow
+     illumination change — a single global normalisation throws that away. */
+  function pos(R,G,B,N,win){
+    var l=win||Math.round(1.6*FS), H=new Float64Array(N);
+    var s1=new Float64Array(l), s2=new Float64Array(l);
+    for(var n=l-1;n<N;n++){
+      var m=n-l+1, mr=0,mg=0,mb=0,k;
+      for(k=m;k<=n;k++){ mr+=R[k]; mg+=G[k]; mb+=B[k]; }
+      mr/=l; mg/=l; mb/=l;
+      if(mr<=0||mg<=0||mb<=0) continue;
+      var a1=0,a2=0;
+      for(k=0;k<l;k++){
+        var rn=R[m+k]/mr, gn=G[m+k]/mg, bn=B[m+k]/mb;
+        s1[k]=gn-bn; s2[k]=gn+bn-2*rn; a1+=s1[k]; a2+=s2[k];
+      }
+      a1/=l; a2/=l;
+      var v1=0,v2=0;
+      for(k=0;k<l;k++){ v1+=(s1[k]-a1)*(s1[k]-a1); v2+=(s2[k]-a2)*(s2[k]-a2); }
+      var al=v2>1e-12?Math.sqrt(v1/v2):0, hm=0;
+      for(k=0;k<l;k++) hm+=s1[k]+al*s2[k];
+      hm/=l;
+      for(k=0;k<l;k++) H[m+k]+=s1[k]+al*s2[k]-hm;
+    }
+    return H;
+  }
+
+  /* ---------- Butterworth biquads (RBJ) + zero-phase filtering ---------- */
+  function biquad(type,fc,fs){
+    var w=2*Math.PI*fc/fs, c=Math.cos(w), s=Math.sin(w), q=Math.SQRT1_2, al=s/(2*q), a0=1+al;
+    if(type==='lp') return {b0:(1-c)/2/a0,b1:(1-c)/a0,b2:(1-c)/2/a0,a1:-2*c/a0,a2:(1-al)/a0};
+    return {b0:(1+c)/2/a0,b1:-(1+c)/a0,b2:(1+c)/2/a0,a1:-2*c/a0,a2:(1-al)/a0};
+  }
+  function runBq(x,f){
+    var y=new Float64Array(x.length), x1=x[0],x2=x[0],y1=x[0]*0,y2=0;
+    /* start at steady state for the first value to avoid a start-up kick */
+    var dc=(f.b0+f.b1+f.b2)/(1+f.a1+f.a2); y1=y2=x[0]*dc;
+    for(var i=0;i<x.length;i++){
+      var v=f.b0*x[i]+f.b1*x1+f.b2*x2-f.a1*y1-f.a2*y2;
+      x2=x1; x1=x[i]; y2=y1; y1=v; y[i]=v;
+    }
+    return y;
+  }
+  function filtfilt(x,stages){
+    var N=x.length, pad=Math.min(N-1,Math.round(1.5*FS)), L=N+2*pad, z=new Float64Array(L), i;
+    for(i=0;i<pad;i++){ z[i]=2*x[0]-x[pad-i]; z[L-1-i]=2*x[N-1]-x[N-2-(pad-1-i)]; }
+    for(i=0;i<N;i++) z[pad+i]=x[i];
+    var y=z;
+    for(var s=0;s<stages.length;s++) y=runBq(y,stages[s]);
+    y=y.reverse ? Float64Array.from(y).reverse() : y;
+    for(s=0;s<stages.length;s++) y=runBq(y,stages[s]);
+    y=Float64Array.from(y).reverse();
+    return y.subarray(pad,pad+N);
+  }
+  function bandpass(x,lo,hi,fs){
+    fs=fs||FS;
+    return filtfilt(x,[biquad('hp',lo,fs),biquad('lp',hi,fs)]);
+  }
+  function lowpass(x,hi,fs){ return filtfilt(x,[biquad('lp',hi,fs||FS)]); }
+
+  /* ---------- Welch PSD evaluated on a fine frequency grid ---------- */
+  function welch(x,fs,f0,f1,step,segSec){
+    var N=x.length, L=Math.min(N,Math.max(16,Math.round(segSec*fs))), hop=Math.max(1,Math.floor(L/2));
+    var nf=Math.floor((f1-f0)/step)+1, P=new Float64Array(nf), w=new Float64Array(L), k, i, s, nseg=0;
+    for(k=0;k<L;k++) w[k]=0.5-0.5*Math.cos(2*Math.PI*k/(L-1));
+    var seg=new Float64Array(L);
+    for(s=0;s+L<=N;s+=hop){
+      nseg++;
+      var mu=mean(x,s,s+L);
+      for(k=0;k<L;k++) seg[k]=(x[s+k]-mu)*w[k];
+      for(i=0;i<nf;i++){
+        var om=2*Math.PI*(f0+i*step)/fs, c=Math.cos(om), sn=Math.sin(om), pr=1, pi=0, re=0, im=0;
+        for(k=0;k<L;k++){ re+=seg[k]*pr; im+=seg[k]*pi; var t=pr*c-pi*sn; pi=pr*sn+pi*c; pr=t; }
+        P[i]+=re*re+im*im;
+      }
+    }
+    if(nseg) for(i=0;i<nf;i++) P[i]/=nseg;
+    return {P:P, f0:f0, step:step, n:nf};
+  }
+  function argmax(P,a,b){ a=a||0; b=(b==null)?P.length:b; var bi=a,bv=-Infinity; for(var i=a;i<b;i++) if(P[i]>bv){bv=P[i];bi=i;} return bi; }
+  function peakFreq(ps,i){
+    /* parabolic interpolation between grid points */
+    var P=ps.P, d=0;
+    if(i>0&&i<ps.n-1){ var den=P[i-1]-2*P[i]+P[i+1]; if(den<0) d=clamp(0.5*(P[i-1]-P[i+1])/den,-0.5,0.5); }
+    return ps.f0+(i+d)*ps.step;
+  }
+
+  /* ---------- SNR as in de Haan & Jeanne 2013: fundamental + first harmonic vs the rest ---------- */
+  function snrAt(ps,f){
+    var sig=0,noi=0;
+    for(var i=0;i<ps.n;i++){
+      var fi=ps.f0+i*ps.step;
+      if(Math.abs(fi-f)<=0.1||Math.abs(fi-2*f)<=0.2) sig+=ps.P[i]; else noi+=ps.P[i];
+    }
+    return 10*Math.log10((sig+1e-20)/(noi+1e-20));
+  }
+
+  /* ---------- cubic (Catmull-Rom) upsampling for sub-frame beat timing ---------- */
+  function upsample(x,f){
+    var N=x.length, M=(N-1)*f+1, y=new Float64Array(M);
+    for(var j=0;j<M;j++){
+      var p=j/f, i=Math.floor(p), u=p-i;
+      var p0=x[Math.max(0,i-1)], p1=x[i], p2=x[Math.min(N-1,i+1)], p3=x[Math.min(N-1,i+2)];
+      y[j]=0.5*((2*p1)+(-p0+p2)*u+(2*p0-5*p1+4*p2-p3)*u*u+(-p0+3*p1-3*p2+p3)*u*u*u);
+    }
+    return y;
+  }
+
+  /* ---------- beat detection + artefact-corrected HRV ----------
+     Rough peaks are refined by cross-correlating each beat with the average beat shape.
+     That uses the whole waveform instead of one noisy sample, which is what keeps
+     RMSSD from being inflated by timing jitter. */
+  function beats(sig,bpm,fs){
+    var UP=4, fb=bpm/60;
+    /* narrow the band around the actual heart rate before timing beats */
+    var nb=bandpass(sig,Math.max(0.55,fb*0.55),Math.min(4.2,fb*2.6),fs);
+    var x=upsample(nb,UP), fsu=fs*UP, T=fsu*60/bpm, half=Math.max(3,Math.round(T*0.42));
+    var N=x.length, pk=[], i, k;
+    for(i=1;i<N-1;i++){
+      if(x[i]<=0||x[i]<x[i-1]||x[i]<x[i+1]) continue;
+      var ok=true;
+      for(k=Math.max(0,i-half);k<=Math.min(N-1,i+half);k++) if(x[k]>x[i]){ok=false;break;}
+      if(!ok) continue;
+      if(pk.length && i-pk[pk.length-1] < T*0.55) continue;
+      pk.push(i);
+    }
+    if(pk.length<4) return null;
+
+    /* average beat template */
+    var hw=Math.round(T*0.45), tl=2*hw+1, tmpl=new Float64Array(tl), cnt=0;
+    for(i=0;i<pk.length;i++){
+      var c=pk[i]; if(c-hw<0||c+hw>=N) continue;
+      for(k=-hw;k<=hw;k++) tmpl[k+hw]+=x[c+k];
+      cnt++;
+    }
+    if(cnt<3) return null;
+    var tm=mean(tmpl), tn=0;
+    for(k=0;k<tl;k++){ tmpl[k]-=tm; tn+=tmpl[k]*tmpl[k]; }
+    tn=Math.sqrt(tn)||1;
+    var sr=Math.max(2,Math.round(T*0.18)), ref=[], amp=[], corrs=[];
+    for(i=0;i<pk.length;i++){
+      var c0=pk[i], bl=-1, bs=-Infinity, sc=[];
+      for(var lag=-sr;lag<=sr;lag++){
+        var cc=c0+lag;
+        if(cc-hw<0||cc+hw>=N){ sc.push(-Infinity); continue; }
+        var dot=0, sm=0, ss=0;
+        for(k=-hw;k<=hw;k++){ sm+=x[cc+k]; }
+        sm/=tl;
+        for(k=-hw;k<=hw;k++){ var v=x[cc+k]-sm; dot+=v*tmpl[k+hw]; ss+=v*v; }
+        var r=dot/(tn*(Math.sqrt(ss)||1));
+        sc.push(r);
+        if(r>bs){ bs=r; bl=lag; }
+      }
+      if(bs===-Infinity) continue;
+      var j=bl+sr, off=0;
+      if(j>0&&j<sc.length-1&&isFinite(sc[j-1])&&isFinite(sc[j+1])){
+        var den=sc[j-1]-2*sc[j]+sc[j+1]; if(den<0) off=clamp(0.5*(sc[j-1]-sc[j+1])/den,-0.5,0.5);
+      }
+      ref.push(c0+bl+off); amp.push(x[c0+bl]); corrs.push(bs);
+    }
+    if(ref.length<4) return null;
+
+    var tb=[], ib=[], i2;
+    for(i2=0;i2<ref.length;i2++) tb.push(ref[i2]/fsu);
+    for(i2=1;i2<ref.length;i2++) ib.push((tb[i2]-tb[i2-1])*1000);
+    /* reject impossible intervals, poorly shaped beats, and anything >20% off the local median (Malik) */
+    var ok2=[], gm=median(ib);
+    for(i2=0;i2<ib.length;i2++){
+      var lo=Math.max(0,i2-3), hi=Math.min(ib.length,i2+4), loc=median(ib.slice(lo,hi));
+      ok2.push(ib[i2]>=300 && ib[i2]<=1600 && Math.abs(ib[i2]-loc)<=0.20*loc &&
+               Math.abs(ib[i2]-gm)<=0.35*gm && corrs[i2]>=0.5 && corrs[i2+1]>=0.5);
+    }
+    var sq=0,nsq=0,nn50=0,clean=[];
+    for(i2=0;i2<ib.length;i2++) if(ok2[i2]) clean.push(ib[i2]);
+    for(i2=1;i2<ib.length;i2++) if(ok2[i2]&&ok2[i2-1]){ var d=ib[i2]-ib[i2-1]; sq+=d*d; nsq++; if(Math.abs(d)>50) nn50++; }
+    var med=median(ib), outl=0, big=0;
+    for(i2=0;i2<ib.length;i2++) if(Math.abs(ib[i2]-med)/med>0.20) outl++;
+    for(i2=1;i2<ib.length;i2++) if(Math.abs(ib[i2]-ib[i2-1])>50) big++;
+    return {
+      times:tb, ibi:ib, ok:ok2, clean:clean, amp:amp, corr:median(corrs),
+      acceptRatio: clean.length/Math.max(1,ib.length),
+      rmssd: nsq>=6?Math.sqrt(sq/nsq):null,
+      sdnn: clean.length>=6?sd(clean):null,
+      pnn50: nsq?nn50/nsq:null,
+      nPairs:nsq,
+      outRatio: outl/Math.max(1,ib.length),
+      rawPnn50: ib.length>1?big/(ib.length-1):0
+    };
+  }
+
+  /* ---------- breathing ----------
+     A 10–15 s window only holds 2–5 breaths, far too few for a sharp spectral peak.
+     Autocorrelation finds the repeat period directly, so each surrogate gets its own
+     period estimate and a quality score; agreeing surrogates are then fused. */
+  function respOne(x,fsR){
+    var N=x.length; if(N<fsR*7) return null;
+    var y=bandpass(x,0.12,0.6,fsR), m=mean(y), v=0, i, k;
+    for(i=0;i<N;i++){ y[i]-=m; v+=y[i]*y[i]; }
+    if(v<=0) return null;
+    var lmin=Math.floor(fsR/0.55), lmax=Math.min(N-fsR*2,Math.ceil(fsR/0.14)), ac=[];
+    for(k=0;k<=lmax+1;k++){ var s=0; for(i=0;i+k<N;i++) s+=y[i]*y[i+k]; ac.push(s/v*(N/(N-k))); }
+    /* take the FIRST strong repeat, not the tallest — the tallest is often two breaths long */
+    var peaks=[], k2, top=-Infinity;
+    for(k2=Math.max(1,lmin);k2<=lmax;k2++) if(ac[k2]>ac[k2-1]&&ac[k2]>=ac[k2+1]&&ac[k2]>0){ peaks.push(k2); if(ac[k2]>top) top=ac[k2]; }
+    if(!peaks.length) return null;
+    var bk=peaks[0];
+    for(k2=0;k2<peaks.length;k2++) if(ac[peaks[k2]]>=0.7*top){ bk=peaks[k2]; break; }
+    var bv=ac[bk];
+    var den=ac[bk-1]-2*ac[bk]+ac[bk+1], off=den<0?clamp(0.5*(ac[bk-1]-ac[bk+1])/den,-0.5,0.5):0;
+    var per=(bk+off)/fsR;
+    /* the trough at half a period should be clearly negative for a genuine rhythm */
+    var hk=Math.round((bk+off)/2), trough=ac[hk]||0;
+    var qual=clamp((bv-trough)/2,0,1);
+    return {f:1/per, q:qual};
+  }
+  function respFuse(cands){
+    var ests=[], i;
+    for(i=0;i<cands.length;i++){
+      var c=cands[i]; if(!c||!c.x) continue;
+      var r=respOne(c.x,4); if(!r||r.q<0.25) continue;
+      if(r.f<0.14||r.f>0.55) continue;
+      ests.push({f:r.f, w:r.q*(c.w||1), q:r.q});
+    }
+    if(!ests.length) return null;
+    /* score each estimate by how much weight agrees with it (within 2.5 breaths/min) */
+    var best=null;
+    for(i=0;i<ests.length;i++){
+      var sw=0, sf=0, n=0;
+      for(var j=0;j<ests.length;j++) if(Math.abs(ests[j].f-ests[i].f)*60<=2.5){ sw+=ests[j].w; sf+=ests[j].f*ests[j].w; n++; }
+      if(!best||sw>best.sw) best={sw:sw, f:sf/sw, n:n};
+    }
+    var conf = best.n>=2 ? clamp(best.sw/1.2,0,1) : clamp((best.sw-0.35)/0.6,0,1);
+    return {rpm:best.f*60, conf:conf, n:best.n};
+  }
+  function toGrid(times,vals,t0,t1,fs){
+    if(!times||times.length<4) return null;
+    var N=Math.floor((t1-t0)*fs), y=new Float64Array(N), j=0;
+    for(var i=0;i<N;i++){
+      var t=t0+i/fs;
+      while(j<times.length-2&&times[j+1]<t) j++;
+      var u=(times[j+1]>times[j])?(t-times[j])/(times[j+1]-times[j]):0;
+      y[i]=vals[j]+(vals[j+1]-vals[j])*clamp(u,0,1);
+    }
+    return y;
+  }
+
+  /* =====================================================================
+     analyze(samples, opts)
+       samples: [{t, rois:[[r,g,b,n],...], face, mot, noseY, luma}]
+       opts:    {mode:'face'|'finger', t0, t1}
+     ===================================================================== */
+  function analyze(samples,opts){
+    var mode=opts.mode, t0=opts.t0, t1=opts.t1, S=[], i, k;
+    for(i=0;i<samples.length;i++) if(samples[i].t>=t0-0.2&&samples[i].t<=t1+0.2) S.push(samples[i]);
+    if(S.length<FS*4) return {ok:false, why:'short'};
+    t0=Math.max(t0,S[0].t); t1=Math.min(t1,S[S.length-1].t);
+    var dur=t1-t0; if(dur<4) return {ok:false, why:'short'};
+    var ts=S.map(function(s){return s.t;});
+
+    /* coverage / motion / lighting over the window */
+    var faceFrac=0, motBad=0, lum=[];
+    for(i=0;i<S.length;i++){
+      if(S[i].face) faceFrac++;
+      if(S[i].mot>0.012) motBad++;
+      if(S[i].luma>0) lum.push(S[i].luma);
+    }
+    faceFrac/=S.length; motBad/=S.length;
+    /* lighting change: smoothed, percentile range — a jittery region edge must not look like a lamp switching */
+    var lumaSwing=0;
+    if(lum.length>FS){
+      var ls=[], acc=0, wN=15;
+      for(i=0;i<lum.length;i++){ acc+=lum[i]; if(i>=wN) acc-=lum[i-wN]; if(i>=wN-1) ls.push(acc/wN); }
+      ls.sort(function(a,b){return a-b;});
+      var p5=ls[Math.floor(ls.length*0.05)], p95=ls[Math.floor(ls.length*0.95)];
+      lumaSwing=(p95-p5)/Math.max(1,p95);
+    }
+    if(mode==='face' && faceFrac<0.6) return {ok:false, why:'noface'};
+
+    var nR=S[0].rois.length, chans=[], best=null, snrs=[];
+    for(k=0;k<nR;k++){
+      var r=[],g=[],b=[],tt=[];
+      for(i=0;i<S.length;i++){
+        var q=S[i].rois[k];
+        if(q && q[3]>=20){ tt.push(S[i].t); r.push(q[0]); g.push(q[1]); b.push(q[2]); }
+      }
+      if(tt.length<FS*4){ chans.push(null); continue; }
+      var R=resample(tt,r,t0,t1,FS), G=resample(tt,g,t0,t1,FS), B=resample(tt,b,t0,t1,FS);
+      if(!R) { chans.push(null); continue; }
+      var raw;
+      if(mode==='finger'){
+        /* fingertip under a torch: more blood absorbs more light, so invert the brightest usable channel */
+        var src = mean(R)>246 ? G : R;
+        raw=new Float64Array(src.length); var mu=mean(src);
+        for(i=0;i<src.length;i++) raw[i]=-(src[i]-mu)/Math.max(1,mu);
+      } else {
+        /* POS comes out with the systolic edge pointing down; flip it so beats are maxima */
+        raw=pos(R,G,B,R.length);
+        for(i=0;i<raw.length;i++) raw[i]=-raw[i];
+      }
+      var f=bandpass(raw,0.65,3.5);
+      var ps=welch(f,FS,0.65,3.5,0.01,Math.min(dur,8));
+      var pi_=argmax(ps.P), fq=peakFreq(ps,pi_), snr=snrAt(ps,fq);
+      var ch={f:f, raw:raw, G:G, R:R, ps:ps, fq:fq, snr:snr, sdG:sd(G)};
+      chans.push(ch); snrs.push(snr);
+      if(!best||snr>best.snr) best=ch;
+    }
+    if(!best) return {ok:false, why:'weak'};
+
+    /* fuse regions, weighting each by its signal-to-noise ratio */
+    var N=best.f.length, fused=new Float64Array(N), wsum=0;
+    for(k=0;k<chans.length;k++){
+      var c=chans[k]; if(!c||c.f.length!==N) continue;
+      if(c.snr < best.snr-6) continue;
+      var w=Math.pow(10,c.snr/10), s0=sd(c.f)||1;
+      /* keep polarity consistent with the best region */
+      var cor=0; for(i=0;i<N;i++) cor+=c.f[i]*best.f[i];
+      var sgn=cor>=0?1:-1;
+      for(i=0;i<N;i++) fused[i]+=sgn*w*c.f[i]/s0;
+      wsum+=w;
+    }
+    if(wsum>0) for(i=0;i<N;i++) fused[i]/=wsum;
+
+    var PS=welch(fused,FS,0.65,3.5,0.01,Math.min(dur,8));
+    var bi=argmax(PS.P), fHR=peakFreq(PS,bi);
+    /* guard against locking onto the second harmonic */
+    var hb=Math.round((fHR/2-PS.f0)/PS.step);
+    if(fHR/2>=0.75 && hb>=0 && hb<PS.n){
+      var hp=PS.P[argmax(PS.P,Math.max(0,hb-3),Math.min(PS.n,hb+4))];
+      if(hp>=0.7*PS.P[bi]) { var j2=argmax(PS.P,Math.max(0,hb-3),Math.min(PS.n,hb+4)); fHR=peakFreq(PS,j2); }
+    }
+    var SNR=snrAt(PS,fHR), bpm=fHR*60;
+
+    /* ---------- confidence ---------- */
+    var q=clamp((SNR+4)/8,0,1);
+    if(mode==='face') q*=clamp((faceFrac-0.6)/0.35,0,1);
+    q*=1-clamp(motBad*1.6,0,0.85);
+    if(lumaSwing>0.35) q*=0.45; else if(lumaSwing>0.2) q*=0.75;
+    if(fHR<=0.68||fHR>=3.45) q*=0.2;
+    if(mode==='face'&&(bpm<45||bpm>160)) q*=0.5;
+    if(mode==='finger'&&best.sdG<0.05&&sd(best.R)<0.05) q*=0.2;
+    /* a real pulse gives the same answer in each half of the window */
+    var split=null;
+    if(N>=FS*8){
+      var h1=welch(fused.subarray(0,N>>1),FS,0.65,3.5,0.02,dur/2), h2=welch(fused.subarray(N>>1),FS,0.65,3.5,0.02,dur/2);
+      var fa=peakFreq(h1,argmax(h1.P))*60, fb=peakFreq(h2,argmax(h2.P))*60;
+      split=Math.abs(fa-fb);
+      if(split>12) q*=0.2; else if(split>7) q*=0.55;
+    }
+
+    /* independent skin regions of one face must agree on the rate — noise does not */
+    var valid=0, agree=0;
+    for(k=0;k<chans.length;k++){ if(!chans[k]) continue; valid++; if(Math.abs(chans[k].fq*60-bpm)<=6) agree++; }
+    if(mode==='face'&&valid>=3){ if(agree<2) q*=0.3; }
+    else if(mode==='face'&&valid===2){ if(agree<2) q*=0.5; }
+
+    var out={ok:true, mode:mode, bpm:bpm, q:q, snr:SNR, dur:dur, sig:fused, agree:agree, valid:valid,
+             faceFrac:faceFrac, motion:motBad, lumaSwing:lumaSwing, split:split,
+             regions:chans.map(function(c){return c?{snr:c.snr,bpm:c.fq*60}:null;})};
+
+    /* ---------- HRV ---------- */
+    var bt=(q>=0.35)?beats(fused,bpm,FS):null;
+    out.beats=bt;
+    /* ultra-short HRV (10–15 s, a dozen beats) is statistically meaningless — require ~25 s */
+    if(dur>=(opts.minHrvSec||25) && bt && bt.rmssd!==null && bt.acceptRatio>=0.7 && bt.nPairs>=8 && bt.corr>=0.7 && SNR>=1.5 && bt.rmssd<=160){
+      out.rmssd=bt.rmssd; out.sdnn=bt.sdnn; out.pnn50=bt.pnn50;
+      /* log-scaled so the index behaves sensibly across the normal RMSSD range */
+      var lr=Math.log(clamp(bt.rmssd,8,120));
+      out.stress=Math.round(clamp(100*(1-(lr-Math.log(10))/(Math.log(100)-Math.log(10))),3,97));
+    }
+    if(!out.rmssd) out.hrvWhy = dur<(opts.minHrvSec||25) ? 'short' : 'weak';
+    if(mode==='finger' && bt && dur>=25 && q>=0.55 && bt.ibi.length>=20 && bt.outRatio>=0.12 && bt.rawPnn50>=0.30)
+      out.irregular=true;
+
+    /* ---------- breathing ---------- */
+    if(dur>=9.5 && q>=0.35){
+      var fsR=4, cands=[];
+      if(bt && bt.clean.length>=6){
+        var bt_t=[], bt_i=[], bt_a=[];
+        for(i=1;i<bt.times.length;i++) if(bt.ok[i-1]){ bt_t.push(t0+bt.times[i]); bt_i.push(bt.ibi[i-1]); }
+        for(i=0;i<bt.times.length;i++){ bt_a.push(bt.amp[i]); }
+        cands.push({x:toGrid(bt_t,bt_i,t0+1,t1-1,fsR), w:1.2});                                     // RSA
+        cands.push({x:toGrid(bt.times.map(function(v){return t0+v;}),bt_a,t0+1,t1-1,fsR), w:0.9}); // amplitude
+      }
+      var bl=lowpass(mode==='finger'?best.R:best.G,0.6), blt=[];
+      for(i=0;i<bl.length;i++) blt.push(t0+i/FS);
+      cands.push({x:toGrid(blt,bl,t0+1,t1-1,fsR), w:0.8});                                           // baseline
+      if(mode==='face'){
+        var ny=[], nt=[];
+        for(i=0;i<S.length;i++) if(S[i].face&&S[i].noseY!=null){ nt.push(S[i].t); ny.push(S[i].noseY); }
+        if(nt.length>FS*8) cands.push({x:toGrid(nt,ny,t0+1,t1-1,fsR), w:0.7});                        // head bob
+      }
+      var rr=respFuse(cands);
+      if(rr&&rr.rpm&&rr.conf>=0.35){ out.rpm=rr.rpm; out.rpmConf=rr.conf; out.rpmN=rr.n; }
+      else out.rpmWhy='weak';
+    } else out.rpmWhy = dur<9.5 ? 'short' : 'weak';
+
+    return out;
+  }
+
+  var api={FS:FS, analyze:analyze, pos:pos, bandpass:bandpass, welch:welch, snrAt:snrAt, beats:beats, median:median};
+  if(typeof module!=='undefined'&&module.exports) module.exports=api; else root.CCEngine=api;
+})(this);
+
+</script>
+<script>
 (function(){
   "use strict";
+  var E=window.CCEngine, FS=E.FS;
   var $=function(id){return document.getElementById(id);};
-  var video=$('cam'), stage=$('stage'), guide=$('guide'), camoff=$('camoff'), frame=$('frame'),
+  var video=$('cam'), stage=$('stage'), ov=$('ov'), octx=ov.getContext('2d'),
+      guide=$('guide'), camoff=$('camoff'), frame=$('frame'), hint=$('hint'),
       tabFace=$('tabFace'), tabFinger=$('tabFinger'),
-      segF=$('segF'), segC=$('segC'), seg10=$('seg10'), seg15=$('seg15'), seg30=$('seg30'),
-      roiF=$('roiF'), roiC=$('roiC'), roiFinger=$('roiFinger'),
+      seg10=$('seg10'), seg15=$('seg15'), seg30=$('seg30'),
       btnStart=$('btnStart'), btnMeasure=$('btnMeasure'), btnStop=$('btnStop'),
       btnAgain=$('btnAgain'), btnSave=$('btnSave'), who=$('who'),
       optBase=$('optBase'), clearBase=$('clearBase'),
       selfStat=$('selfStat'), statusEl=$('status'), bigCount=$('bigCount'), prog=$('prog'),
       bpmEl=$('bpm'), devEl=$('dev'), heartEl=$('heart'),
       qval=$('qval'), qbar=$('qbar'),
-      mRpm=$('mRpm'), rpmWhy=$('rpmWhy'), mHrv=$('mHrv'), mStress=$('mStress'),
+      mRpm=$('mRpm'), rpmWhy=$('rpmWhy'), mHrv=$('mHrv'), hrvWhy=$('hrvWhy'), mStress=$('mStress'),
       waveCv=$('wave'), liveTxt=$('liveTxt'), irrBanner=$('irrBanner'),
+      engineTag=$('engineTag'), engineTxt=$('engineTxt'),
       logEl=$('log'), logEmpty=$('logEmpty'), logWrap=$('logWrap'),
       cardPanel=$('cardPanel'), cardImg=$('cardImg'), httpsWarn=$('httpsWarn');
-
-  var W=240,H=320,FS=30,LIVEWIN=8;
-  var work=document.createElement('canvas'); work.width=W; work.height=H;
-  var wctx=work.getContext('2d',{willReadFrequently:true});
   var wctx2=waveCv.getContext('2d');
 
-  var ROIS={
-    forehead:{rects:[[0.30,0.22,0.40,0.13]], label:'이마'},
-    cheeks:  {rects:[[0.16,0.44,0.20,0.14],[0.64,0.44,0.20,0.14]], label:'양 볼'},
-    finger:  {rects:[[0.30,0.32,0.40,0.26]], label:'손끝'}
-  };
+  /* ================= face landmark engine ================= */
+  var MP_VER='1.0.1';
+  var SOURCES=[
+    {js:'mp/vision_bundle.js', wasm:'mp/wasm', model:'mp/face_landmarker.task'},
+    {js:'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@'+MP_VER+'/vision_bundle.js',
+     wasm:'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@'+MP_VER+'/wasm',
+     model:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'}
+  ];
+  var landmarker=null, engineState='loading', OVAL=null;
 
-  var mode='face', roiMode='forehead', DUR=10;
-  var stream=null, track=null, torchOn=false, wake=null;
-  var running=false, buf=[], lastSample=0, raf=0;
-  var bpmHist=[], curve=null, quality=0, satWarn=false;
-  var measuring=false, measureEnd=0, measureStartT=0;
-  var lastEstimate=0, lastBeat=0, lastDraw=0;
-  var goodSince=0, countSecs=10;
+  /* landmark sets from the MediaPipe canonical face mesh; each is filled as a convex hull */
+  var ROI_SETS=[
+    [10,109,67,103,338,297,332,151,108,69,337,299,9,107,66,336,296,104,333],          // forehead
+    [50,101,118,117,116,123,147,187,205,36,142,126,206,207,216,192,213],               // cheek (image left)
+    [280,330,347,346,345,352,376,411,425,266,371,355,426,427,436,416,433]              // cheek (image right)
+  ];
+
+  function loadScript(src){
+    return new Promise(function(res,rej){
+      var s=document.createElement('script'); s.src=src; s.async=true;
+      s.onload=res; s.onerror=function(){ s.remove(); rej(new Error('load '+src)); };
+      document.head.appendChild(s);
+    });
+  }
+  function withTimeout(p,ms){ return Promise.race([p,new Promise(function(_,rej){ setTimeout(function(){rej(new Error('timeout'));},ms); })]); }
+  function abs(u){ return new URL(u,location.href).href; }
+
+  /* Face tracking runs in its own thread. However slow the device is at finding the face,
+     the pixel sampling that carries the pulse keeps running at the full camera frame rate. */
+  var WORKER_SRC=[
+    'var lm=null;',
+    'function make(fs,model,del){return Vision.FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:model,delegate:del},runningMode:"VIDEO",numFaces:1,minFaceDetectionConfidence:.5,minFacePresenceConfidence:.5,minTrackingConfidence:.5});}',
+    'self.onmessage=async function(ev){var m=ev.data;',
+    ' if(m.type==="init"){',
+    '  for(var s=0;s<m.sources.length&&!lm;s++){var src=m.sources[s];',
+    '   try{ if(typeof Vision==="undefined") importScripts(src.js);',
+    '    var fs=await Vision.FilesetResolver.forVisionTasks(src.wasm);',
+    '    for(var k=0;k<m.models.length&&!lm;k++){ for(var d=0;d<2&&!lm;d++){ try{ lm=await make(fs,m.models[k],d?"CPU":"GPU"); }catch(e){} } }',
+    '   }catch(e){}',
+    '  }',
+    '  if(lm) postMessage({type:"ready",oval:Vision.FaceLandmarker.FACE_LANDMARKS_FACE_OVAL}); else postMessage({type:"fail"});',
+    ' } else if(m.type==="frame"){',
+    '  var t0=performance.now(),out=null;',
+    '  try{ var r=lm.detectForVideo(m.bmp,m.ts), L=r.faceLandmarks&&r.faceLandmarks[0];',
+    '   if(L){ out=new Float32Array(L.length*2); for(var i=0;i<L.length;i++){ out[2*i]=L[i].x; out[2*i+1]=L[i].y; } } }catch(e){}',
+    '  try{ m.bmp.close(); }catch(e){}',
+    '  postMessage({type:"lm",lm:out,ms:performance.now()-t0,ts:m.ts},out?[out.buffer]:[]);',
+    ' }',
+    '};'
+  ].join('\n');
+  var worker=null, workerBusy=false;
+
+  function initWorker(){
+    return new Promise(function(res,rej){
+      var w;
+      try{ w=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:'text/javascript'}))); }catch(e){ rej(e); return; }
+      var to=setTimeout(function(){ try{w.terminate();}catch(e){} rej(new Error('timeout')); },60000);
+      w.onmessage=function(ev){
+        var m=ev.data;
+        if(m.type==='ready'){ clearTimeout(to); OVAL=m.oval; w.onmessage=onWorkerMsg; res(w); }
+        else if(m.type==='fail'){ clearTimeout(to); try{w.terminate();}catch(e){} rej(new Error('fail')); }
+      };
+      w.onerror=function(){ clearTimeout(to); rej(new Error('worker error')); };
+      w.postMessage({type:'init',
+        sources:SOURCES.map(function(s){ return {js:abs(s.js), wasm:abs(s.wasm)}; }),
+        models:[abs(SOURCES[0].model), SOURCES[SOURCES.length-1].model]});
+    });
+  }
+  function initMain(){
+    var i=0;
+    function next(){
+      if(i>=SOURCES.length) return Promise.reject(new Error('no source'));
+      var src=SOURCES[i++];
+      var ready=window.Vision?Promise.resolve():withTimeout(loadScript(src.js),15000);
+      return ready.then(function(){ return withTimeout(window.Vision.FilesetResolver.forVisionTasks(src.wasm),20000); })
+      .then(function(fs){
+        var models=[src.model, SOURCES[SOURCES.length-1].model];
+        function mk(k,del){ if(k>=models.length) return Promise.reject(new Error('model'));
+          return withTimeout(window.Vision.FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:models[k],delegate:del},runningMode:'VIDEO',numFaces:1}),25000)
+            .catch(function(){ return mk(k+1,del); }); }
+        return mk(0,'GPU').catch(function(){ return mk(0,'CPU'); });
+      }).catch(function(){ return next(); });
+    }
+    return next();
+  }
+  function initEngine(){
+    return initWorker().then(function(w){ worker=w; engineState='pro'; showEngine(); })
+      .catch(function(){
+        return initMain().then(function(lm){
+          landmarker=lm; engineState='pro';
+          try{ OVAL=window.Vision.FaceLandmarker.FACE_LANDMARKS_FACE_OVAL; }catch(e){}
+          showEngine();
+        });
+      }).catch(function(){ engineState='basic'; showEngine(); });
+  }
+  function showEngine(){
+    engineTag.className='engine '+(engineState==='pro'?'pro':engineState==='basic'?'basic':'');
+    engineTxt.textContent = engineState==='pro' ? '정밀 추적 · 얼굴 특징점 478개 · 이마·양 볼 3부위 융합'
+      : engineState==='basic' ? '간이 추적 모드 — 정밀 엔진을 불러오지 못했습니다(네트워크 확인)'
+      : '분석 엔진 준비 중…';
+  }
+  initEngine();
+
+  /* ================= state ================= */
+  var mode='face', DUR=10;
+  var stream=null, track=null, torchOn=false, wake=null, camLocked=false, lockTimer=0;
+  var running=false, samples=[], rafId=0, lastTs=0, lastDetect=0, detMs=12, frameNo=0;
+  var lastLm=null, lastLmAt=0, lastHulls=null, prevNose=null, prevNoseAt=0, curFace=null, lastMot=0;
+  var WW=320, work=document.createElement('canvas'), wctx=work.getContext('2d',{willReadFrequently:true});
+  var MW=16, MH=22, mapc=document.createElement('canvas'); mapc.width=MW; mapc.height=MH;
+  var mctx=mapc.getContext('2d',{willReadFrequently:true});
+  var live=null, bpmHist=[], quality=0, goodSince=0, countSecs=10;
+  var measuring=false, measureEnd=0, measureStartT=0, lastLive=0, lastBeat=0, lastWave=0, lastHint=0;
+  var holdTiles=0;
+  var guideState={k:'', ok:false}, holdUntil=0, faceSince=0, noFaceAt=0;
   var SELF={sleep:null,drink:null,med:null,cond:null};
 
   function setStatus(m,c){ statusEl.textContent=m; statusEl.className='status'+(c?' '+c:''); }
-  function roiKey(){ return mode==='finger'?'finger':roiMode; }
   if(!window.isSecureContext) httpsWarn.hidden=false;
+  function nowS(){ return performance.now()/1000; }
 
   /* ---------- personal baseline (this browser only) ---------- */
   var LSK='cc_baseline_v1';
@@ -429,8 +956,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     var db=lsGet(); if(!db.consent) return null;
     var a=(db.people||{})[name];
     if(!a||!a.hr||a.hr.length<3) return null;
-    var s=a.hr.slice().sort(function(x,y){return x-y;});
-    return {hr:s[Math.floor(s.length/2)], n:a.hr.length};
+    return {hr:Math.round(E.median(a.hr)), n:a.hr.length};
   }
   function pushBaseline(name,bpm){
     if(!name) return;
@@ -447,10 +973,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       ? '평소 대비 비교를 켰습니다. 같은 이름으로 3회 이상 재면 본인 평소값이 잡힙니다.'
       : '평소 대비 비교를 껐습니다. 새 측정값은 저장되지 않습니다.');
   });
-  clearBase.addEventListener('click',function(){
-    lsSet({consent:optBase.checked});
-    setStatus('저장된 평소값을 모두 지웠습니다.');
-  });
+  clearBase.addEventListener('click',function(){ lsSet({consent:optBase.checked}); setStatus('저장된 평소값을 모두 지웠습니다.'); });
 
   /* ---------- self check ---------- */
   Array.prototype.forEach.call(document.querySelectorAll('.opts'),function(g){
@@ -459,35 +982,35 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       Array.prototype.forEach.call(g.children,function(x){x.classList.remove('on');});
       b.classList.add('on');
       SELF[g.getAttribute('data-q')]=parseInt(b.getAttribute('data-v'),10);
-      var n=0,k;
-      for(k in SELF) if(SELF[k]!==null) n++;
+      var n=0,k; for(k in SELF) if(SELF[k]!==null) n++;
       selfStat.textContent = n===4 ? '작성 완료 '+selfScore()+'점' : n+'/4 입력';
       selfStat.className = 'selfstat'+(n===4?' done':'');
     });
   });
-  function selfScore(){
-    var s=0,k,any=false;
-    for(k in SELF) if(SELF[k]!==null){ s+=SELF[k]; any=true; }
-    return any?s:null;
-  }
+  function selfScore(){ var s=0,k,any=false; for(k in SELF) if(SELF[k]!==null){ s+=SELF[k]; any=true; } return any?s:null; }
   function selfText(){
-    var m={sleep:['충분','','6시간 미만'],drink:['음주 없음','','전날 음주'],
+    var m={sleep:['수면 충분','','6시간 미만 수면'],drink:['음주 없음','','전날 음주'],
            med:['복약 없음','복약 중'],cond:['컨디션 좋음','컨디션 보통','','컨디션 나쁨']};
-    var out=[],k;
-    for(k in SELF) if(SELF[k]!==null && m[k] && m[k][SELF[k]]) out.push(m[k][SELF[k]]);
+    var out=[],k; for(k in SELF) if(SELF[k]!==null && m[k] && m[k][SELF[k]]) out.push(m[k][SELF[k]]);
     return out;
   }
 
+  /* ================= camera ================= */
   video.addEventListener('loadedmetadata',function(){
     var vw=video.videoWidth, vh=video.videoHeight;
     if(vw&&vh){
       stage.style.setProperty('--ar', vw+'/'+vh);
       stage.style.setProperty('--arn', (vw/vh).toFixed(4));
+      work.width=WW; work.height=Math.round(WW*vh/vw);
     }
-    drawWave();
+    sizeOverlay(); drawWave();
   });
+  function sizeOverlay(){
+    var r=stage.getBoundingClientRect(), d=window.devicePixelRatio||1;
+    ov.width=Math.max(1,Math.round(r.width*d)); ov.height=Math.max(1,Math.round(r.height*d));
+  }
+  window.addEventListener('resize',function(){ sizeOverlay(); drawWave(); });
 
-  /* ================= camera ================= */
   function start(){
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
       setStatus('이 브라우저에서 카메라를 쓸 수 없습니다. https 주소인지 확인하세요.','crit');
@@ -495,38 +1018,34 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     }
     var cons={audio:false, video:{
       facingMode: mode==='finger'?{ideal:'environment'}:{ideal:'user'},
-      width:{ideal:640}, height:{ideal:480}, frameRate:{ideal:30}
+      width:{ideal:640}, height:{ideal:480}, frameRate:{ideal:30, max:30}
     }};
     setStatus('카메라 권한을 요청하는 중입니다…');
     navigator.mediaDevices.getUserMedia(cons)
       .then(function(s){
         stream=s; track=s.getVideoTracks()[0];
         video.srcObject=s;
-        video.classList.toggle('mirror', mode==='face');
+        var mir=mode==='face';
+        video.classList.toggle('mirror',mir); ov.classList.toggle('mirror',mir);
         return video.play();
       })
       .then(function(){
-        running=true; reset();
+        running=true; resetAll();
         camoff.hidden=true; guide.hidden=false;
         btnStart.hidden=true; btnMeasure.hidden=false; btnStop.hidden=false;
+        frame.hidden=(mode!=='face');
         keepAwake();
         if(mode==='finger') return enableTorch();
       })
       .then(function(){
-        if(mode==='finger'){
-          setStatus(torchOn
-            ? '플래시를 켰습니다. 손끝으로 렌즈를 살짝 덮으세요. 화면이 붉게 차면 정상입니다.'
-            : '이 기기에서 플래시를 켜지 못했습니다. 밝은 곳에서 시도하거나 얼굴 측정을 쓰세요.',
-            torchOn?null:'warn');
-        }else{
-          setStatus('카메라 동작 중. 모서리 표시가 초록으로 바뀌면 신호가 잘 잡히는 중입니다.');
-        }
+        setStatus(mode==='finger'
+          ? (torchOn ? '플래시를 켰습니다. 손끝으로 후면 렌즈를 살짝 덮으세요.' : '이 기기에서 플래시를 켜지 못했습니다. 밝은 곳에서 시도하거나 얼굴 측정을 쓰세요.')
+          : '카메라 동작 중. 화면 위 안내를 따라 자세를 맞춰 주세요.', (mode==='finger'&&!torchOn)?'warn':null);
         loop();
       })
       .catch(function(err){
         var m='카메라를 열지 못했습니다.';
-        if(err&&(err.name==='NotAllowedError'||err.name==='SecurityError'))
-          m='카메라 권한이 거부되었습니다. 주소창 자물쇠에서 카메라를 허용으로 바꾸세요.';
+        if(err&&(err.name==='NotAllowedError'||err.name==='SecurityError')) m='카메라 권한이 거부되었습니다. 주소창 자물쇠에서 카메라를 허용으로 바꾸세요.';
         else if(err&&err.name==='NotFoundError') m='카메라를 찾지 못했습니다.';
         else if(err&&err.name==='NotReadableError') m='다른 앱이 카메라를 쓰고 있습니다. 종료 후 다시 시도하세요.';
         setStatus(m,'crit');
@@ -536,326 +1055,389 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   function enableTorch(){
     torchOn=false;
     if(!track||!track.getCapabilities) return Promise.resolve();
-    var caps;
-    try{ caps=track.getCapabilities(); }catch(e){ return Promise.resolve(); }
+    var caps; try{ caps=track.getCapabilities(); }catch(e){ return Promise.resolve(); }
     if(!caps||!caps.torch) return Promise.resolve();
-    return track.applyConstraints({advanced:[{torch:true}]})
-      .then(function(){ torchOn=true; }).catch(function(){ torchOn=false; });
+    return track.applyConstraints({advanced:[{torch:true}]}).then(function(){ torchOn=true; }).catch(function(){ torchOn=false; });
   }
-  function disableTorch(){
-    if(track&&torchOn){ try{ track.applyConstraints({advanced:[{torch:false}]}); }catch(e){} }
-    torchOn=false;
+
+  /* Auto-exposure and auto white-balance keep nudging the image, and every nudge looks
+     like a change in skin colour. Once the picture has settled, freeze them. */
+  function lockCamera(){
+    if(camLocked||!track||!track.getCapabilities||mode==='finger') return;
+    var caps,st; try{ caps=track.getCapabilities(); st=track.getSettings(); }catch(e){ return; }
+    var adv={};
+    if(caps.exposureMode&&caps.exposureMode.indexOf('manual')>=0&&st.exposureTime){ adv.exposureMode='manual'; adv.exposureTime=st.exposureTime; }
+    if(caps.whiteBalanceMode&&caps.whiteBalanceMode.indexOf('manual')>=0&&st.colorTemperature){ adv.whiteBalanceMode='manual'; adv.colorTemperature=st.colorTemperature; }
+    if(!Object.keys(adv).length){ camLocked='n/a'; return; }
+    camLocked='pending';
+    track.applyConstraints({advanced:[adv]}).then(function(){ camLocked=true; }).catch(function(){ camLocked='n/a'; });
+  }
+  function unlockCamera(){
+    if(camLocked!==true||!track) return;
+    try{ track.applyConstraints({advanced:[{exposureMode:'continuous',whiteBalanceMode:'continuous'}]}); }catch(e){}
+    camLocked=false;
   }
   function keepAwake(){
-    try{
-      if(navigator.wakeLock&&navigator.wakeLock.request)
-        navigator.wakeLock.request('screen').then(function(w){wake=w;}).catch(function(){});
-    }catch(e){}
+    try{ if(navigator.wakeLock&&navigator.wakeLock.request) navigator.wakeLock.request('screen').then(function(w){wake=w;}).catch(function(){}); }catch(e){}
   }
-  function releaseAwake(){ try{ if(wake){wake.release(); wake=null;} }catch(e){} }
 
-  function setVal(el,v,unit,bigNA){
+  function setVal(el,v,unit){
     if(v===null||v===undefined||!isFinite(v)){ el.textContent='—'; el.className='val na'; return; }
     el.className='val'; el.innerHTML=v+(unit?'<small>'+unit+'</small>':'');
   }
-  function reset(){
-    buf=[]; bpmHist=[]; curve=null; quality=0; satWarn=false;
+  function resetAll(){
+    euro=null; faceSince=0; noFaceAt=0; samples=[]; bpmHist=[]; live=null; quality=0; goodSince=0; lastLm=null; lastLmAt=0; lastHulls=null; prevNose=null; curFace=null; lastMot=0; workerBusy=false;
+    camLocked=false; clearTimeout(lockTimer);
     setVal(bpmEl,null); devEl.innerHTML='&nbsp;'; devEl.className='sub';
     setVal(qval,null); setVal(mRpm,null); setVal(mHrv,null); setVal(mStress,null);
-    rpmWhy.innerHTML='&nbsp;';
+    rpmWhy.innerHTML='&nbsp;'; hrvWhy.innerHTML='&nbsp;';
     qbar.style.width='0'; qbar.className=''; prog.style.width='0';
-    frame.classList.remove('good'); irrBanner.hidden=true; goodSince=0;
+    frame.classList.remove('good'); irrBanner.hidden=true;
+    octx.clearRect(0,0,ov.width,ov.height);
   }
-
   function stop(){
     running=false; measuring=false; bigCount.classList.remove('on');
-    if(raf) cancelAnimationFrame(raf);
-    disableTorch(); releaseAwake();
+    if(rafId) cancelAnimationFrame(rafId);
+    if(track&&torchOn){ try{ track.applyConstraints({advanced:[{torch:false}]}); }catch(e){} } torchOn=false;
+    try{ if(wake){ wake.release(); wake=null; } }catch(e){}
     if(stream){ stream.getTracks().forEach(function(t){t.stop();}); stream=null; track=null; }
     video.srcObject=null;
     camoff.hidden=false; guide.hidden=true;
     btnStart.hidden=false; btnMeasure.hidden=true; btnStop.hidden=true;
-    reset(); drawWave();
+    resetAll(); drawWave();
     setStatus('카메라를 껐습니다.');
   }
 
-  /* ================= sampling ================= */
+  /* ================= frame loop ================= */
   function loop(){
     if(!running) return;
-    raf=requestAnimationFrame(loop);
-    var now=performance.now();
-    if(now-lastSample<1000/FS) return;
-    lastSample=now;
-    if(video.readyState<2) return;
+    if(video.requestVideoFrameCallback){
+      video.requestVideoFrameCallback(function(now,meta){
+        if(!running) return;
+        var ts=(meta&&meta.captureTime)?meta.captureTime:now;
+        onFrame(ts/1000); loop();
+      });
+    } else {
+      rafId=requestAnimationFrame(function(){
+        var t=nowS();
+        if(t-lastTs>=1/31) onFrame(t);
+        loop();
+      });
+    }
+  }
 
+  function convexHull(pts){
+    pts=pts.slice().sort(function(a,b){return a[0]-b[0]||a[1]-b[1];});
+    function cross(o,a,b){ return (a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]); }
+    var lo=[],up=[],i;
+    for(i=0;i<pts.length;i++){ while(lo.length>=2&&cross(lo[lo.length-2],lo[lo.length-1],pts[i])<=0) lo.pop(); lo.push(pts[i]); }
+    for(i=pts.length-1;i>=0;i--){ while(up.length>=2&&cross(up[up.length-2],up[up.length-1],pts[i])<=0) up.pop(); up.push(pts[i]); }
+    up.pop(); lo.pop(); return lo.concat(up);
+  }
+
+  /* chroma-based skin test (works across skin tones) plus brightness bounds */
+  function skinPix(r,g,b){
+    var y=0.299*r+0.587*g+0.114*b;
+    if(y<38||y>238) return false;
+    var cb=128-0.168736*r-0.331264*g+0.5*b, cr=128+0.5*r-0.418688*g-0.081312*b;
+    return cr>=133&&cr<=180&&cb>=74&&cb<=130;
+  }
+
+  /* average skin pixels inside each convex polygon (work-canvas px) */
+  function sampleHulls(hulls,useMask){
+    var W=work.width, H=work.height, x0=W,y0=H,x1=0,y1=0,h,k;
+    for(h=0;h<hulls.length;h++) for(k=0;k<hulls[h].length;k++){
+      var p=hulls[h][k]; x0=Math.min(x0,p[0]); y0=Math.min(y0,p[1]); x1=Math.max(x1,p[0]); y1=Math.max(y1,p[1]);
+    }
+    x0=Math.max(0,Math.floor(x0)); y0=Math.max(0,Math.floor(y0)); x1=Math.min(W-1,Math.ceil(x1)); y1=Math.min(H-1,Math.ceil(y1));
+    if(x1<=x0||y1<=y0) return null;
+    var bw=x1-x0+1, bh=y1-y0+1, d;
+    try{ d=wctx.getImageData(x0,y0,bw,bh).data; }catch(e){ return null; }
+    var out=[], lumaS=0, lumaN=0;
+    for(h=0;h<hulls.length;h++){
+      var P=hulls[h], ymin=H,ymax=0; for(k=0;k<P.length;k++){ ymin=Math.min(ymin,P[k][1]); ymax=Math.max(ymax,P[k][1]); }
+      var sr=0,sg=0,sb=0,n=0, ar=0,ag=0,ab=0,an=0;
+      for(var y=Math.max(y0,Math.ceil(ymin)); y<=Math.min(y1,Math.floor(ymax)); y++){
+        var yy=y+0.5, xl=1e9, xr=-1e9;
+        for(k=0;k<P.length;k++){
+          var a=P[k], b=P[(k+1)%P.length];
+          if((a[1]<=yy&&b[1]>yy)||(b[1]<=yy&&a[1]>yy)){ var xi=a[0]+(yy-a[1])*(b[0]-a[0])/(b[1]-a[1]); if(xi<xl)xl=xi; if(xi>xr)xr=xi; }
+        }
+        if(xr<xl) continue;
+        for(var x=Math.max(x0,Math.ceil(xl)); x<=Math.min(x1,Math.floor(xr)); x++){
+          var i=((y-y0)*bw+(x-x0))*4, r=d[i], g=d[i+1], bb=d[i+2];
+          ar+=r; ag+=g; ab+=bb; an++;
+          if(!useMask||skinPix(r,g,bb)){ sr+=r; sg+=g; sb+=bb; n++; }
+        }
+      }
+      /* under unusual lighting the chroma test can reject everything; the landmark hull is still skin */
+      if(useMask && an>0 && n<an*0.25){ sr=ar; sg=ag; sb=ab; n=an; }
+      if(n){ out.push([sr/n,sg/n,sb/n,n]); if(h===0){ lumaS+=(0.299*sr+0.587*sg+0.114*sb)/n; lumaN++; } }
+      else out.push([0,0,0,0]);
+    }
+    return {rois:out, luma:lumaN?lumaS/lumaN:0};
+  }
+
+  /* fallback tracker: topmost band of skin in a coarse map */
+  function coarseFace(){
+    var d; try{ mctx.drawImage(video,0,0,MW,MH); d=mctx.getImageData(0,0,MW,MH).data; }catch(e){ return null; }
+    var rows=[], mask=[], x, y, i;
+    for(y=0;y<MH;y++){ var c=0; mask[y]=[]; for(x=0;x<MW;x++){ i=(y*MW+x)*4; mask[y][x]=skinPix(d[i],d[i+1],d[i+2])?1:0; c+=mask[y][x]; } if(c>=3) rows.push(y); }
+    if(rows.length<4) return null;
+    var top=rows[0]; if(top>MH-8) return null;
+    var lo=MW,hi=-1; for(y=top;y<Math.min(MH,top+4);y++) for(x=0;x<MW;x++) if(mask[y][x]){ if(x<lo)lo=x; if(x>hi)hi=x; }
+    if(hi-lo<3) return null;
+    return {cx:(lo+hi+1)/2/MW, w:(hi-lo+1)/MW, top:top/MH, cell:1/MH};
+  }
+  function rect(x,y,w,h){ return [[x,y],[x+w,y],[x+w,y+h],[x,y+h]]; }
+
+  function onWorkerMsg(ev){
+    var m=ev.data; if(m.type!=='lm') return;
+    workerBusy=false; detMs=detMs*0.8+m.ms*0.2;
+    acceptLandmarks(m.lm);
+  }
+  /* One-Euro filter (Casiez et al. 2012): heavy smoothing while the head is still,
+     almost none while it moves — so the regions sit still on the skin without lagging. */
+  var euro=null;
+  function smoothLm(L,pn){
+    var n=L.length;
+    if(!euro||euro.x.length!==n||pn-euro.t>600){ euro={x:Float32Array.from(L), dx:new Float32Array(n), t:pn}; return euro.x; }
+    var dt=Math.max(0.001,(pn-euro.t)/1000); euro.t=pn;
+    var aD=1/(1+1/(2*Math.PI*1.0*dt));
+    for(var i=0;i<n;i++){
+      var d=(L[i]-euro.x[i])/dt;
+      euro.dx[i]+=aD*(d-euro.dx[i]);
+      var fc=0.8+12*Math.abs(euro.dx[i]), a=1/(1+1/(2*Math.PI*fc*dt));
+      euro.x[i]+=a*(L[i]-euro.x[i]);
+    }
+    return euro.x;
+  }
+  function acceptLandmarks(L){
+    var pn=performance.now();
+    if(!L){ lastLm=null; euro=null; return; }
+    L=smoothLm(L,pn);
+    lastLm=L; lastLmAt=pn;
+    var lx=L[234*2], rx=L[454*2], nx=L[1*2], ny=L[1*2+1];
+    var fw=Math.abs(rx-lx), cx=(lx+rx)/2;
+    curFace={w:fw, cx:cx, cy:(L[10*2+1]+L[152*2+1])/2, yaw:(nx-cx)/Math.max(0.01,fw)};
+    if(prevNose){
+      var dt=Math.max(1,pn-prevNoseAt)/1000;
+      /* normalise to "per camera frame" so the threshold doesn't depend on detection speed */
+      lastMot=Math.hypot(nx-prevNose.x,ny-prevNose.y)/Math.max(0.05,fw)/(dt*30);
+    }
+    prevNose={x:nx,y:ny}; prevNoseAt=pn;
+  }
+  function lmHulls(L,W,H){
+    return ROI_SETS.map(function(set){ return convexHull(set.map(function(i){ return [L[2*i]*W, L[2*i+1]*H]; })); });
+  }
+
+  function onFrame(t){
+    lastTs=t; frameNo++;
+    var W=work.width, H=work.height;
+    if(!W||!H) return;
     wctx.drawImage(video,0,0,W,H);
-    var rects=ROIS[roiKey()].rects, r=0,g=0,b=0,n=0,sat=0,k,i,d;
-    for(k=0;k<rects.length;k++){
-      var q=rects[k];
-      try{
-        d=wctx.getImageData(Math.round(W*q[0]),Math.round(H*q[1]),
-                            Math.round(W*q[2]),Math.round(H*q[3])).data;
-      }catch(e){ return; }
-      for(i=0;i<d.length;i+=16){ r+=d[i]; g+=d[i+1]; b+=d[i+2]; n++; if(d[i]>=253) sat++; }
-    }
-    if(!n) return;
-    satWarn=(sat/n)>0.45;
-    buf.push({r:r/n,g:g/n,b:b/n,t:now/1000});
-    while(buf.length&&buf[0].t<now/1000-45) buf.shift();
+    var s={t:t, rois:null, face:false, mot:0, noseY:null, luma:0};
 
-    if(buf.length) liveTxt.textContent=(buf[buf.length-1].t-buf[0].t).toFixed(1)+'초';
-    if(measuring) prog.style.width=Math.min(100,100*(1-(measureEnd-now)/(countSecs*1000)))+'%';
-    if(now-lastEstimate>700){ lastEstimate=now; live(); }
-    if(now-lastDraw>90){ lastDraw=now; drawWave(); }
-    beatTick(now);
-  }
-
-  /* ================= signal core ================= */
-  function mean(x){var s=0,k;for(k=0;k<x.length;k++)s+=x[k];return s/x.length;}
-  function sd(x){var m=mean(x),s=0,k;for(k=0;k<x.length;k++)s+=(x[k]-m)*(x[k]-m);return Math.sqrt(s/x.length);}
-
-  function resample(tStart,tEnd){
-    var N=Math.round((tEnd-tStart)*FS);
-    if(N<60) return null;
-    var R=new Float64Array(N),G=new Float64Array(N),B=new Float64Array(N),j=0,i;
-    for(i=0;i<N;i++){
-      var t=tStart+i/FS;
-      while(j<buf.length-2&&buf[j+1].t<t) j++;
-      var a=buf[j],c=buf[j+1],dt=c.t-a.t,u=dt>1e-6?(t-a.t)/dt:0;
-      if(u<0)u=0; if(u>1)u=1;
-      R[i]=a.r+(c.r-a.r)*u; G[i]=a.g+(c.g-a.g)*u; B[i]=a.b+(c.b-a.b)*u;
-    }
-    return {R:R,G:G,B:B,N:N};
-  }
-  function pos(R,G,B,N){
-    var mR=mean(R),mG=mean(G),mB=mean(B),i;
-    if(mG<12) return null;
-    var S1=new Float64Array(N),S2=new Float64Array(N);
-    for(i=0;i<N;i++){
-      var rn=R[i]/mR,gn=G[i]/mG,bn=B[i]/mB;
-      S1[i]=gn-bn; S2[i]=gn+bn-2*rn;
-    }
-    var s2=sd(S2), al=s2>1e-9?sd(S1)/s2:0, h=new Float64Array(N);
-    for(i=0;i<N;i++) h[i]=S1[i]+al*S2[i];
-    var mh=mean(h);
-    for(i=0;i<N;i++) h[i]-=mh;
-    return h;
-  }
-  function contact(R,G,N){
-    var useG=mean(R)>248, src=useG?G:R, h=new Float64Array(N), i, m=mean(src);
-    for(i=0;i<N;i++) h[i]=-(src[i]-m);
-    return band(h,N,Math.max(1,Math.round(FS*0.04)),Math.round(FS*1.6));
-  }
-  function peak(sig,N,f0,f1,step){
-    var win=new Float64Array(N),i;
-    for(i=0;i<N;i++) win[i]=sig[i]*(0.5-0.5*Math.cos(2*Math.PI*i/(N-1)));
-    var bf=0,bp=-1,tot=0,spec=[],f;
-    for(f=f0;f<=f1+1e-9;f+=step){
-      var re=0,im=0,k=2*Math.PI*f/FS;
-      for(i=0;i<N;i++){ var a=k*i; re+=win[i]*Math.cos(a); im+=win[i]*Math.sin(a); }
-      var p=re*re+im*im;
-      spec.push([f,p]); tot+=p;
-      if(p>bp){bp=p;bf=f;}
-    }
-    if(tot<=0) return null;
-    var bw=(f1-f0)*0.06, near=0;
-    for(i=0;i<spec.length;i++) if(Math.abs(spec[i][0]-bf)<bw) near+=spec[i][1];
-    return {f:bf, share:near/tot};
-  }
-  function band(sig,N,smoothN,driftN){
-    var sm=new Float64Array(N),out=new Float64Array(N),i,k,s,c;
-    for(i=0;i<N;i++){ s=0;c=0;
-      for(k=Math.max(0,i-smoothN);k<=Math.min(N-1,i+smoothN);k++){s+=sig[k];c++;}
-      sm[i]=s/c; }
-    for(i=0;i<N;i++){ s=0;c=0;
-      for(k=Math.max(0,i-driftN);k<=Math.min(N-1,i+driftN);k++){s+=sig[k];c++;}
-      out[i]=sm[i]-s/c; }
-    return out;
-  }
-  function beats(sig,N,bpm){
-    var period=FS*60/bpm, minD=Math.max(4,Math.round(period*0.55));
-    var f=band(sig,N,Math.max(1,Math.round(FS*0.05)),Math.round(period*0.9));
-    var pk=[],i,k,ok;
-    for(i=1;i<N-1;i++){
-      if(f[i]<=0) continue;
-      if(!(f[i]>=f[i-1]&&f[i]>=f[i+1])) continue;
-      ok=true;
-      for(k=Math.max(0,i-minD);k<=Math.min(N-1,i+minD);k++) if(f[k]>f[i]){ok=false;break;}
-      if(!ok) continue;
-      var den=f[i-1]-2*f[i]+f[i+1], off=den!==0?0.5*(f[i-1]-f[i+1])/den:0;
-      if(off<-1||off>1) off=0;
-      if(pk.length&&(i+off)-pk[pk.length-1]<minD) continue;
-      pk.push(i+off);
-    }
-    if(pk.length<5) return null;
-    var ib=[],j;
-    for(j=1;j<pk.length;j++) ib.push((pk[j]-pk[j-1])/FS*1000);
-    var s=ib.slice().sort(function(a,b){return a-b;}), med=s[Math.floor(s.length/2)];
-    var outl=0,big=0;
-    for(j=0;j<ib.length;j++) if(Math.abs(ib[j]-med)/med>0.20) outl++;
-    for(j=1;j<ib.length;j++) if(Math.abs(ib[j]-ib[j-1])>50) big++;
-    var outRatio=ib.length?outl/ib.length:0;
-    var pnn50=ib.length>1?big/(ib.length-1):0;
-    var keep=ib.filter(function(v){return v>med*0.72&&v<med*1.28;});
-    if(keep.length<4) return null;
-    var sum=0,cnt=0;
-    for(j=1;j<keep.length;j++){ var dd=keep[j]-keep[j-1]; sum+=dd*dd; cnt++; }
-    return {sdnn:sd(keep), rmssd:cnt?Math.sqrt(sum/cnt):null,
-            n:ib.length, outRatio:outRatio, pnn50:pnn50};
-  }
-
-  /* breathing also modulates how BIG each pulse is, not just the baseline.
-     this pulls that amplitude envelope out as a second place to look for it. */
-  function envelope(h,N,bpm){
-    var period=FS*60/bpm;
-    var f=band(h,N,Math.max(1,Math.round(FS*0.05)),Math.round(period*0.9));
-    var e=new Float64Array(N),i;
-    for(i=0;i<N;i++) e[i]=Math.abs(f[i]);
-    return band(e,N,Math.max(1,Math.round(period*0.6)),Math.round(FS*6));
-  }
-
-  function analyze(tStart,tEnd){
-    if(!buf.length) return null;
-    if(buf[0].t>tStart) tStart=buf[0].t;
-    var rs=resample(tStart,tEnd);
-    if(!rs) return null;
-    var h, mo;
     if(mode==='finger'){
-      if(mean(rs.R)<40) return {noFinger:true};
-      h=contact(rs.R,rs.G,rs.N); mo=0;
-    }else{
-      h=pos(rs.R,rs.G,rs.B,rs.N);
-      if(!h) return {dark:true};
-      var mG=mean(rs.G),dd=0,i;
-      for(i=1;i<rs.N;i++) dd+=Math.abs(rs.G[i]-rs.G[i-1]);
-      mo=dd/((rs.N-1)*mG);
-    }
-    var hr=peak(h,rs.N,0.70,3.00,0.01);
-    if(!hr) return null;
-    var q=Math.max(0,Math.min(1,(hr.share-(mode==='finger'?0.14:0.10))/0.32));
-    if(mo>0.006) q*=0.45;
-    var out={bpm:hr.f*60, q:q, motion:mo, sig:h, N:rs.N, dur:rs.N/FS};
-    if(rs.N>=FS*9){
-      var cands=[], bestR=null, ci;
-      cands.push(peak(band(mode==='finger'?rs.R:rs.G,rs.N,Math.round(FS*0.4),Math.round(FS*5)),
-                      rs.N,0.13,0.50,0.004));
-      cands.push(peak(envelope(h,rs.N,out.bpm),rs.N,0.13,0.50,0.004));
-      if(mode!=='finger')
-        cands.push(peak(band(rs.G,rs.N,Math.round(FS*0.25),Math.round(FS*7)),
-                        rs.N,0.13,0.50,0.004));
-      for(ci=0;ci<cands.length;ci++)
-        if(cands[ci] && (!bestR || cands[ci].share>bestR.share)) bestR=cands[ci];
-      if(bestR && bestR.share>0.10){ out.rpm=bestR.f*60; out.rpmQ=bestR.share; }
-      else out.rpmWhy='weak';
-    } else out.rpmWhy='short';
-    if(q>=(mode==='finger'?0.25:0.32)){
-      var bt=beats(h,rs.N,out.bpm);
-      if(bt&&bt.rmssd){
-        out.rmssd=bt.rmssd; out.sdnn=bt.sdnn;
-        out.stress=Math.max(5,Math.min(95,Math.round(100-1.1*bt.rmssd)));
-        if(mode==='finger' && out.dur>=25 && q>=0.5 && bt.n>=20
-           && bt.outRatio>=0.12 && bt.pnn50>=0.30) out.irregular=true;
+      var fr=sampleHulls([rect(W*0.2,H*0.2,W*0.6,H*0.6)],false);
+      if(fr){
+        var v=fr.rois[0];
+        s.rois=[v]; s.luma=0.299*v[0]+0.587*v[1]+0.114*v[2];
+        s.face = v[0]>70 && v[0]>2.0*v[1];          // a lit fingertip is overwhelmingly red
+        s.sat = v[0]>=250;
+      }
+    } else {
+      var pn=performance.now();
+      if(worker){
+        if(!workerBusy && pn-lastDetect>45 && window.createImageBitmap){
+          workerBusy=true; lastDetect=pn;
+          var tsMs=Math.round(pn);
+          createImageBitmap(video).then(function(bmp){
+            if(!worker){ try{bmp.close();}catch(e){} return; }
+            worker.postMessage({type:'frame',bmp:bmp,ts:tsMs},[bmp]);
+          }).catch(function(){ workerBusy=false; });
+        }
+      } else if(landmarker && pn-lastDetect>70){
+        /* no worker available: detect on this thread, but never on every frame */
+        lastDetect=pn;
+        var t0=performance.now(), L=null;
+        try{
+          var res=landmarker.detectForVideo(video,Math.round(pn));
+          var F=res&&res.faceLandmarks&&res.faceLandmarks[0];
+          if(F){ L=new Float32Array(F.length*2); for(var q2=0;q2<F.length;q2++){ L[2*q2]=F[q2].x; L[2*q2+1]=F[q2].y; } }
+        }catch(e){}
+        detMs=detMs*0.8+(performance.now()-t0)*0.2;
+        acceptLandmarks(L);
+      }
+      var hulls=null, tracking=!!(worker||landmarker);
+      var fresh=lastLm && (pn-lastLmAt)<1500;
+      if(tracking && fresh){
+        hulls=lmHulls(lastLm,W,H);
+        s.mot=lastMot; s.noseY=lastLm[3]; s.face=true;
+      } else if(!tracking){
+        var cf=coarseFace();
+        if(cf){
+          var fw2=cf.w, top=cf.top, cell=cf.cell;
+          hulls=[
+            rect((cf.cx-fw2*0.29)*W,(top+cell*0.6)*H,fw2*0.58*W,cell*3*H),
+            rect((cf.cx-fw2*0.44)*W,(top+cell*5.4)*H,fw2*0.24*W,cell*3.4*H),
+            rect((cf.cx+fw2*0.20)*W,(top+cell*5.4)*H,fw2*0.24*W,cell*3.4*H)
+          ];
+          curFace={w:fw2, cx:cf.cx, cy:top+cell*6, yaw:0};
+          if(prevNose){ s.mot=Math.hypot(cf.cx-prevNose.x,top-prevNose.y)/Math.max(0.05,fw2); }
+          prevNose={x:cf.cx,y:top};
+          s.noseY=top; s.face=true;
+        } else curFace=null;
+      } else curFace=null;
+      lastHulls=hulls;
+      if(hulls){
+        var sm=sampleHulls(hulls,true);
+        if(sm){ s.rois=sm.rois; s.luma=sm.luma; }
+        else s.face=false;
       }
     }
-    return out;
+    if(!s.rois){ s.rois=[[0,0,0,0],[0,0,0,0],[0,0,0,0]].slice(0,mode==='finger'?1:3); s.face=false; }
+    if(s.face){ if(!faceSince) faceSince=t; noFaceAt=0; }
+    else if(mode!=='finger'){ if(!noFaceAt) noFaceAt=t; else if(t-noFaceAt>1.5) faceSince=0; }
+    if(mode==='finger') { if(s.face){ if(!faceSince) faceSince=t; } else faceSince=0; }
+    samples.push(s);
+    while(samples.length&&samples[0].t<t-45) samples.shift();
+
+    drawOverlay();
+    var have=samples.length?t-samples[0].t:0;
+    liveTxt.textContent=have.toFixed(1)+'초';
+    if(measuring) prog.style.width=Math.min(100,100*(1-(measureEnd-performance.now())/(countSecs*1000)))+'%';
+    var pn=performance.now();
+    if(pn-lastLive>650){ lastLive=pn; runLive(t); }
+    if(pn-lastWave>90){ lastWave=pn; drawWave(); }
+    if(pn-lastHint>250){ lastHint=pn; updateGuide(s); }
+    beatTick(pn);
   }
 
-  /* ================= live readout ================= */
+  /* ================= guidance ================= */
+  function updateGuide(s){
+    var g={k:'',ok:false,warn:false};
+    if(mode==='finger'){
+      if(!s.face) g={k:'손끝으로 후면 렌즈와 플래시를 함께 덮으세요',warn:true};
+      else if(s.sat) g={k:'너무 세게 누르고 있습니다 — 힘을 빼고 살짝만',warn:true};
+      else if(live&&live.ok&&live.q>=0.45) g={k:'측정 준비 완료',ok:true};
+      else g={k:'신호를 모으는 중…'};
+    } else {
+      var f=curFace;
+      if(!f) g={k:'얼굴이 보이지 않습니다 — 화면 안으로 들어와 주세요',warn:true};
+      else if(f.w<0.30) g={k:'조금 더 가까이 와 주세요',warn:true};
+      else if(f.w>0.82) g={k:'조금 뒤로 물러나 주세요',warn:true};
+      else if(Math.abs(f.cx-0.5)>0.2||f.cy<0.2||f.cy>0.72) g={k:'얼굴을 화면 가운데로 맞춰 주세요',warn:true};
+      else if(Math.abs(f.yaw)>0.13) g={k:'정면을 바라봐 주세요',warn:true};
+      else if(s.luma&&s.luma<60) g={k:'너무 어둡습니다 — 더 밝은 곳에서',warn:true};
+      else if(s.luma>228) g={k:'빛이 너무 강합니다 — 직사광을 피해 주세요',warn:true};
+      else if(recentMotion()>0.012) g={k:'움직이지 말고 잠시 멈춰 주세요',warn:true};
+      else if(live&&live.ok&&live.q>=0.45) g={k:'측정 준비 완료',ok:true};
+      else g={k:'신호를 모으는 중… 편하게 호흡하세요'};
+      /* once the framing is right, freeze exposure so auto-brightness can't pollute the signal */
+      if(!g.warn && !camLocked && !lockTimer) lockTimer=setTimeout(function(){ lockTimer=0; lockCamera(); },1200);
+    }
+    hint.textContent=g.k;
+    hint.className='hint'+(g.ok?' ok':g.warn?' warn':'');
+    frame.classList.toggle('good',!!g.ok);
+    frame.classList.toggle('tracking',!!(curFace&&(worker||landmarker)));
+    guideState=g;
+  }
+  function recentMotion(){
+    var n=0,s=0; for(var i=samples.length-1;i>=0&&n<15;i--,n++) s+=samples[i].mot||0;
+    return n?s/n:0;
+  }
+
+  /* ================= overlay ================= */
+  function drawOverlay(){
+    var w=ov.width, h=ov.height; if(!w||!h) return;
+    octx.clearRect(0,0,w,h);
+    if(mode!=='face'||!lastHulls) return;
+    var sx=w/work.width, sy=h/work.height, k, i;
+    if(lastLm&&OVAL){
+      octx.strokeStyle='rgba(255,255,255,.38)'; octx.lineWidth=1.3*(window.devicePixelRatio||1);
+      octx.beginPath();
+      for(k=0;k<OVAL.length;k++){ var a=OVAL[k].start*2, b=OVAL[k].end*2; octx.moveTo(lastLm[a]*w,lastLm[a+1]*h); octx.lineTo(lastLm[b]*w,lastLm[b+1]*h); }
+      octx.stroke();
+    }
+    var good=guideState&&guideState.ok;
+    for(k=0;k<lastHulls.length;k++){
+      var P=lastHulls[k]; if(!P||P.length<3) continue;
+      octx.beginPath(); octx.moveTo(P[0][0]*sx,P[0][1]*sy);
+      for(i=1;i<P.length;i++) octx.lineTo(P[i][0]*sx,P[i][1]*sy);
+      octx.closePath();
+      octx.fillStyle=good?'rgba(62,224,168,.16)':'rgba(234,0,44,.16)'; octx.fill();
+      octx.strokeStyle=good?'rgba(62,224,168,.85)':'rgba(255,84,112,.85)'; octx.lineWidth=1.6*(window.devicePixelRatio||1); octx.stroke();
+    }
+  }
+
+  /* ================= live analysis ================= */
+  function runLive(t){
+    var start=faceSince||t, have=t-start;
+    if(have<6) { setVal(qval,null); live=null; return; }
+    var r=E.analyze(samples,{mode:mode, t0:t-Math.min(10,have), t1:t});
+    live=r;
+    if(!r.ok){ quality=0; qbar.style.width='0'; setVal(qval,null); goodSince=0; bpmHist=[]; return; }
+    /* estimates that keep jumping around are not trustworthy yet */
+    if(r.q>=0.3){ bpmHist.push(r.bpm); if(bpmHist.length>5) bpmHist.shift(); }
+    if(bpmHist.length>=3){
+      var tail=bpmHist.slice(-4), sp=Math.max.apply(null,tail)-Math.min.apply(null,tail);
+      if(sp>16) r.q*=0.35; else if(sp>9) r.q*=0.7;
+    }
+    quality=r.q;
+    var qp=Math.round(r.q*100);
+    qval.className='val'; qval.innerHTML=qp+'<small>%</small>';
+    qbar.style.width=qp+'%'; qbar.className=r.q<0.34?'low':(r.q<0.6?'mid':'');
+    if(r.q>=0.45 && guideState && !guideState.warn){ if(!goodSince) goodSince=performance.now(); }
+    else goodSince=0;
+
+    if(r.q>=0.34){
+      var med=Math.round(E.median(bpmHist.slice(-4)));
+      bpmEl.className='val'; bpmEl.innerHTML=med+'<small>bpm</small>';
+      showDev(med);
+      setVal(mRpm, r.rpm?Math.round(r.rpm):null,'회/분');
+      rpmWhy.innerHTML = r.rpm ? '&nbsp;' : (r.rpmWhy==='short'?'10초 이상 필요':'자연스럽게 호흡하세요');
+      if(performance.now()>holdTiles){ setVal(mHrv,null); hrvWhy.textContent = DUR>=30 ? '측정 완료 시 산출' : '30초 정밀에서 측정'; setVal(mStress,null); }
+    } else if(!bpmHist.length) setVal(bpmEl,null);
+    if(!measuring && performance.now()>holdUntil){
+      if(r.q<0.34) setStatus('신호가 약합니다. 화면 위 안내를 따라 자세와 조명을 맞춰 주세요.','warn');
+      else setStatus('신호 양호. 측정 시작을 누르세요.');
+    }
+  }
   function showDev(bpm){
     var b=baselineFor((who.value||'').trim());
-    if(!b||!bpm){ devEl.innerHTML='&nbsp;'; devEl.className='sub'; return null; }
+    if(!b||!bpm){ devEl.innerHTML='&nbsp;'; devEl.className='sub'; return; }
     var d=Math.round(bpm-b.hr);
     devEl.textContent='평소 '+b.hr+' · '+(d>0?'+':'')+d;
     devEl.className='sub'+(Math.abs(d)>=12?' hi':'');
-    return {dev:d, base:b.hr};
   }
-
-  function live(){
-    if(!buf.length) return;
-    var tEnd=buf[buf.length-1].t, have=tEnd-buf[0].t-0.2;
-    if(have<4){ setVal(qval,null); return; }
-    var e=analyze(tEnd-Math.min(LIVEWIN,have),tEnd);
-    if(!e){ return; }
-    if(e.dark){ setStatus('너무 어둡습니다. 밝은 곳으로 가거나 창을 마주보세요.','warn'); frame.classList.remove('good'); return; }
-    if(e.noFinger){ setStatus('손끝이 렌즈를 덮지 않았습니다. 화면이 붉게 차도록 살짝 얹으세요.','warn'); return; }
-
-    curve=e.sig; quality=e.q;
-    var qp=Math.round(e.q*100);
-    qval.className='val'; qval.innerHTML=qp+'<small>%</small>';
-    qbar.style.width=qp+'%';
-    qbar.className=e.q<0.34?'low':(e.q<0.62?'mid':'');
-    frame.classList.toggle('good', e.q>=0.5);
-    /* count only the time the signal has been continuously clean */
-    if(e.q>=0.45){ if(!goodSince) goodSince=performance.now(); } else goodSince=0;
-
-    if(e.q>=0.32){
-      bpmHist.push(e.bpm);
-      if(bpmHist.length>7) bpmHist.shift();
-      var s=bpmHist.slice().sort(function(a,b){return a-b;});
-      var med=Math.round(s[Math.floor(s.length/2)]);
-      bpmEl.className='val'; bpmEl.innerHTML=med+'<small>bpm</small>';
-      showDev(med);
-      setVal(mRpm,e.rpm?Math.round(e.rpm):null,'회/분');
-      rpmWhy.innerHTML = e.rpm ? '&nbsp;'
-        : (e.rpmWhy==='short' ? '10초 이상 필요' : '신호 약함 · 자연스럽게 호흡');
-      setVal(mHrv,e.rmssd?Math.round(e.rmssd):null,'ms');
-      setVal(mStress,e.stress!==undefined?e.stress:null,'/100');
-    }else if(!bpmHist.length){ setVal(bpmEl,null); }
-
-    if(measuring) return;
-    if(mode==='finger'&&satWarn) setStatus('너무 세게 누르고 있습니다. 힘을 빼고 살짝만 얹으세요.','warn');
-    else if(e.motion>0.006) setStatus('움직임이 감지됩니다. 폰과 머리를 고정하세요.','warn');
-    else if(e.q<0.34) setStatus('신호가 약합니다. '+(mode==='finger'?'손끝 위치와 누르는 힘을 조절하세요.':ROIS[roiKey()].label+' 위치를 맞춰 주세요.'),'warn');
-    else setStatus('신호 양호. 측정 시작을 누르세요.');
-  }
-
   function beatTick(now){
-    if(!bpmHist.length||quality<0.32) return;
-    var bpm=parseFloat(bpmEl.textContent);
-    if(!bpm) return;
-    if(now-lastBeat>60000/bpm){
-      lastBeat=now; heartEl.classList.add('beat');
-      setTimeout(function(){heartEl.classList.remove('beat');},110);
-    }
+    if(!bpmHist.length||quality<0.34) return;
+    var bpm=parseFloat(bpmEl.textContent); if(!bpm) return;
+    if(now-lastBeat>60000/bpm){ lastBeat=now; heartEl.classList.add('beat'); setTimeout(function(){heartEl.classList.remove('beat');},110); }
   }
 
-  /* ================= pulse trace over the video ================= */
+  /* ================= pulse trace ================= */
   function drawWave(){
     var dpr=window.devicePixelRatio||1, cssW=waveCv.clientWidth||900, cssH=58;
     if(waveCv.width!==Math.round(cssW*dpr)){ waveCv.width=Math.round(cssW*dpr); waveCv.height=Math.round(cssH*dpr); }
-    var c=wctx2,w=waveCv.width,h=waveCv.height,i;
+    var c=wctx2, w=waveCv.width, h=waveCv.height;
     c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,w,h);
-
-    var src=null,raw=false;
-    if(curve&&curve.length>=10&&quality>=0.10){
-      src=curve.subarray(Math.max(0,curve.length-FS*6));
-    }else if(running&&buf.length>=20){
-      var m=Math.min(buf.length,FS*6),tmp=new Float64Array(m),s0=0;
-      for(i=0;i<m;i++){ tmp[i]=mode==='finger'?-buf[buf.length-m+i].r:buf[buf.length-m+i].g; s0+=tmp[i]; }
-      s0/=m; for(i=0;i<m;i++) tmp[i]-=s0;
-      src=tmp; raw=true;
+    if(!running) return;
+    if(!live||!live.ok||!live.sig||live.q<0.2){
+      c.fillStyle='rgba(255,255,255,.6)'; c.font=(11*dpr)+'px sans-serif'; c.textAlign='center'; c.textBaseline='middle';
+      c.fillText('맥파를 찾는 중…',w/2,h/2); return;
     }
-    if(!src){
-      if(!running) return;
-      c.fillStyle='rgba(255,255,255,.6)'; c.font=(11*dpr)+'px sans-serif';
-      c.textAlign='center'; c.textBaseline='middle';
-      c.fillText('맥파를 찾는 중…',w/2,h/2);
-      return;
-    }
-    c.strokeStyle='rgba(255,255,255,.16)'; c.lineWidth=1*dpr;
-    c.beginPath(); c.moveTo(0,h/2); c.lineTo(w,h/2); c.stroke();
-    plot(c,src,w,h,raw?'rgba(255,255,255,.55)':'#FF4D6A',raw?1:1,2.4*dpr);
+    var sig=live.sig, src=sig.subarray(Math.max(0,sig.length-FS*6));
+    c.strokeStyle='rgba(255,255,255,.16)'; c.lineWidth=1*dpr; c.beginPath(); c.moveTo(0,h/2); c.lineTo(w,h/2); c.stroke();
+    plot(c,src,w,h,live.q>=0.45?'#FF4D6A':'rgba(255,255,255,.55)',1,2.4*dpr);
   }
-
   function plot(c,src,w,h,color,alpha,lw){
     var n=src.length,mn=Infinity,mx=-Infinity,i;
     for(i=0;i<n;i++){ if(src[i]<mn)mn=src[i]; if(src[i]>mx)mx=src[i]; }
     var rng=(mx-mn)||1,pad=h*0.17;
     c.beginPath();
-    for(i=0;i<n;i++){
-      var x=w*i/(n-1), y=h-pad-((src[i]-mn)/rng)*(h-pad*2);
-      i?c.lineTo(x,y):c.moveTo(x,y);
-    }
+    for(i=0;i<n;i++){ var x=w*i/(n-1), y=h-pad-((src[i]-mn)/rng)*(h-pad*2); i?c.lineTo(x,y):c.moveTo(x,y); }
     c.strokeStyle=color; c.lineWidth=lw; c.lineJoin='round'; c.lineCap='round';
     c.globalAlpha=alpha; c.stroke(); c.globalAlpha=1;
   }
@@ -866,299 +1448,207 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     cardPanel.hidden=true; irrBanner.hidden=true;
     measuring=true;
     var now=performance.now();
-    var credit=goodSince ? Math.min(DUR-2,(now-goodSince)/1000) : 0;
-    if(credit<0) credit=0;
+    var credit=goodSince?Math.min(DUR-2,(now-goodSince)/1000):0; if(credit<0) credit=0;
     countSecs=Math.max(2,Math.round(DUR-credit));
-    measureStartT=buf.length?buf[buf.length-1].t:now/1000;
+    measureStartT=samples.length?samples[samples.length-1].t:nowS();
     measureEnd=now+countSecs*1000;
-    bigCount.textContent=countSecs;
-    bigCount.classList.add('on');
+    bigCount.textContent=countSecs; bigCount.classList.add('on');
     btnMeasure.disabled=true; prog.style.width='0';
-    setStatus(credit>=1
-      ? '이미 '+Math.round(credit)+'초가 모여 있어 '+countSecs+'초만 더 재면 됩니다. 움직이지 마세요.'
-      : '측정 중입니다. 움직이지 마세요.');
-    tickCount();
+    lockCamera();
+    setStatus(credit>=1 ? '이미 '+Math.round(credit)+'초가 모여 있어 '+countSecs+'초만 더 재면 됩니다. 움직이지 마세요.' : '측정 중입니다. 움직이지 마세요.');
+    tick();
   }
-  function tickCount(){
+  function tick(){
     if(!measuring) return;
     var left=Math.max(0,Math.ceil((measureEnd-performance.now())/1000));
     bigCount.textContent=left;
     if(left<=0){ finish(); return; }
-    setTimeout(tickCount,200);
+    setTimeout(tick,200);
   }
-
   function finish(){
-    measuring=false; bigCount.classList.remove('on'); btnMeasure.disabled=false;
-    prog.style.width='0';
-    var tEnd=buf.length?buf[buf.length-1].t:0;
-
-    /* the countdown window, plus a longer one reusing signal collected while lining up */
-    var eShort=analyze(measureStartT,tEnd);
-    var want=DUR, eLong=null;
-    if(buf.length && tEnd-buf[0].t > countSecs+1)
-      eLong=analyze(Math.max(buf[0].t, tEnd-want), tEnd);
-    var e=eShort;
-    if(eLong && !eLong.dark && !eLong.noFinger && isFinite(eLong.bpm)){
-      if(!e || e.dark || e.noFinger || !isFinite(e.bpm) || eLong.q>=e.q-0.03) e=eLong;
-    }
-    if(!e||e.dark||e.noFinger||e.q<0.26||!isFinite(e.bpm)){
-      setStatus('신뢰할 만한 신호가 모이지 않아 기록하지 않았습니다. 자세와 조명을 바꿔 다시 시도하세요.','warn');
+    measuring=false; bigCount.classList.remove('on'); btnMeasure.disabled=false; prog.style.width='0';
+    var tEnd=samples.length?samples[samples.length-1].t:0;
+    /* full requested window (reusing clean pre-roll) vs only the counted part — keep the cleaner */
+    var eFull=E.analyze(samples,{mode:mode,t0:tEnd-DUR,t1:tEnd});
+    var eCnt=E.analyze(samples,{mode:mode,t0:measureStartT,t1:tEnd});
+    var e=eFull;
+    if(!e.ok || (eCnt.ok && eCnt.q>e.q+0.08)) e=eCnt;
+    window.__cc.last=e;
+    if(!e.ok||e.q<0.3){
+      var why={noface:'얼굴이 충분히 잡히지 않았습니다.',short:'신호가 충분히 모이지 않았습니다.',weak:'신호가 약했습니다.'}[e.why]||'신호 품질이 낮았습니다.';
+      holdUntil=performance.now()+8000;
+      setStatus(why+' 화면 위 안내를 따라 자세와 조명을 맞춘 뒤 다시 측정하세요.','warn');
       return;
     }
-
     var name=(who.value||'').trim(), b=baselineFor(name);
     var r={
       time:new Date(), mode:mode, who:name,
-      how: mode==='finger'?'손가락':('얼굴 · '+ROIS[roiKey()].label),
-      bpm:Math.round(e.bpm),
-      rpm:e.rpm?Math.round(e.rpm):null,
-      rmssd:e.rmssd?Math.round(e.rmssd):null,
-      stress:e.stress!==undefined?e.stress:null,
-      irregular:!!e.irregular,
-      q:e.q, dur:e.dur, count:countSecs, sig:e.sig,
+      how: mode==='finger'?'손가락':((worker||landmarker)?'얼굴 · 3부위 정밀':'얼굴 · 간이'),
+      bpm:Math.round(e.bpm), rpm:e.rpm?Math.round(e.rpm):null,
+      rmssd:e.rmssd?Math.round(e.rmssd):null, stress:e.stress!=null?e.stress:null,
+      irregular:!!e.irregular, q:e.q, dur:e.dur, sig:e.sig,
       base:b?b.hr:null, dev:b?Math.round(e.bpm-b.hr):null,
-      self:selfScore(), selfList:selfText()
+      self:selfScore(), selfList:selfText(), hulls:lastHulls, lm:lastLm
     };
     r.v=verdict(r);
-    pushBaseline(name, r.bpm);
+    setVal(mHrv,r.rmssd,'ms'); hrvWhy.textContent = r.rmssd ? '분석 '+Math.round(r.dur)+'초' : (e.hrvWhy==='short'?'30초 정밀에서 측정':'신호가 약해 생략');
+    setVal(mStress,r.stress,'/100');
+    holdTiles=performance.now()+15000;
+    pushBaseline(name,r.bpm);
     addLog(r); makeCard(r);
     irrBanner.hidden=!r.irregular;
-    setStatus(r.irregular
-      ? '측정 완료. 박동 규칙성에 대한 안내가 아래에 있습니다.'
-      : '측정 완료. 아래 결과 카드를 저장하실 수 있습니다.', r.irregular?'warn':null);
+    holdUntil=performance.now()+15000;
+    setStatus(r.irregular ? '측정 완료. 박동 규칙성에 대한 안내가 아래에 있습니다.' : '측정 완료. 아래 결과 카드를 저장하실 수 있습니다.', r.irregular?'warn':null);
   }
-
   function verdict(r){
-    if(r.q<0.45) return {k:'재측정', c:'bad'};
-    var f=0;
-    if(r.bpm<50||r.bpm>110) f+=2;
+    if(r.q<0.45) return {k:'재측정 필요',c:'bad',why:'신호 품질이 낮아 값을 신뢰할 수 없습니다'};
+    var f=0, why=[];
+    if(r.bpm<50||r.bpm>110){ f+=2; why.push('심박수가 정상 범위를 벗어남'); }
     if(r.dev!==null){
-      if(Math.abs(r.dev)>=20) f+=2;
-      else if(Math.abs(r.dev)>=12) f+=1;
+      if(Math.abs(r.dev)>=20){ f+=2; why.push('평소 대비 '+(r.dev>0?'+':'')+r.dev); }
+      else if(Math.abs(r.dev)>=12){ f+=1; why.push('평소 대비 '+(r.dev>0?'+':'')+r.dev); }
     }
-    if(r.self!==null){ if(r.self>=4) f+=2; else if(r.self>=2) f+=1; }
+    if(r.rpm!==null&&(r.rpm>24)){ f+=1; why.push('호흡이 빠름'); }
+    if(r.self!==null){ if(r.self>=4){ f+=2; why.push('자가 체크 '+r.self+'점'); } else if(r.self>=2){ f+=1; why.push('자가 체크 '+r.self+'점'); } }
     if(r.irregular) f+=2;
-    if(f>=2) return {k:'확인 필요', c:'bad'};
-    if(f===1) return {k:'주의', c:'mid'};
-    return {k:'정상 범위', c:'ok'};
+    if(f>=2) return {k:'확인 필요',c:'bad',why:why.join(' · ')||'관리자 확인이 필요합니다'};
+    if(f===1) return {k:'주의',c:'mid',why:why.join(' · ')};
+    return {k:'정상 범위',c:'ok',why:'심박수·신호 품질 모두 정상 범위입니다'};
   }
-
   function addLog(r){
     logEmpty.hidden=true; logWrap.open=true;
-    var p=function(v){return String(v).padStart(2,'0');};
-    var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+p(r.time.getHours())+':'+p(r.time.getMinutes())+'</td>'
-      +'<td>'+(r.who||'—')+'</td>'
-      +'<td>'+(r.mode==='finger'?'손가락':'얼굴')+'</td>'
-      +'<td class="num">'+r.bpm+'</td>'
-      +'<td class="num">'+(r.dev!==null?(r.dev>0?'+':'')+r.dev:'—')+'</td>'
+    var p=function(v){return String(v).padStart(2,'0');}, tr=document.createElement('tr');
+    tr.innerHTML='<td>'+p(r.time.getHours())+':'+p(r.time.getMinutes())+'</td><td>'+(r.who||'—')+'</td><td>'+(r.mode==='finger'?'손가락':'얼굴')+'</td>'
+      +'<td class="num">'+r.bpm+'</td><td class="num">'+(r.dev!==null?(r.dev>0?'+':'')+r.dev:'—')+'</td>'
       +'<td><span class="tag '+r.v.c+'">'+r.v.k+'</span></td>';
     logEl.insertBefore(tr,logEl.firstChild);
   }
 
   /* ================= result card ================= */
   var CW=1000, M=48;
-  var K_INK='#1A1416',K_INK3='#8B8084',K_LINE='#E3DBDC',K_SOFT='#F7F3F4',
-      SK_RED='#EA002C', SK_ORANGE='#FAA61A', K_OK='#0F7A57', K_WARN='#8F5200';
+  var K_INK='#1A1416',K_INK3='#8B8084',K_LINE='#E3DBDC',K_SOFT='#F7F3F4',SK_RED='#EA002C',SK_ORANGE='#FAA61A',K_OK='#0F7A57',K_WARN='#8F5200';
   var FONT='"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",sans-serif';
-
-  function rr(c,x,y,w,h,r){
-    if(c.roundRect){ c.beginPath(); c.roundRect(x,y,w,h,r); return; }
-    c.beginPath(); c.moveTo(x+r,y);
-    c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
-    c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
-  }
+  function rr(c,x,y,w,h,r){ if(c.roundRect){ c.beginPath(); c.roundRect(x,y,w,h,r); return; }
+    c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
   function wing(c,x,y,s){
     c.save(); c.translate(x,y); c.scale(s/40,s/40);
-    c.fillStyle=SK_RED; c.beginPath();
-    c.moveTo(4,26); c.bezierCurveTo(10,13,20,7,36,6);
-    c.bezierCurveTo(33,17,25,23,16,24);
-    c.bezierCurveTo(23,25,28,24,32,22);
-    c.bezierCurveTo(27,30,16,34,4,26); c.closePath(); c.fill();
-    c.fillStyle=SK_ORANGE; c.beginPath();
-    c.moveTo(8,33); c.bezierCurveTo(15,29,24,28,33,30);
-    c.bezierCurveTo(27,36,16,38,8,33); c.closePath(); c.fill();
+    c.fillStyle=SK_RED; c.beginPath(); c.moveTo(4,26); c.bezierCurveTo(10,13,20,7,36,6); c.bezierCurveTo(33,17,25,23,16,24);
+    c.bezierCurveTo(23,25,28,24,32,22); c.bezierCurveTo(27,30,16,34,4,26); c.closePath(); c.fill();
+    c.fillStyle=SK_ORANGE; c.beginPath(); c.moveTo(8,33); c.bezierCurveTo(15,29,24,28,33,30); c.bezierCurveTo(27,36,16,38,8,33); c.closePath(); c.fill();
     c.restore();
   }
-
   function makeCard(r){
-    var colW=CW-M*2;
-    var vw=video.videoWidth||480, vh=video.videoHeight||640;
-    var ph=Math.round(colW*vh/vw);
-    if(ph>1260) ph=1260;
-    if(ph<560) ph=560;
-
-    var py=168;
-    var bpmBase=py+ph+108;
-    var metY=bpmBase+44, metH=104;
-    var relY=metY+metH+48;
-    var waveY=relY+38, waveH=126;
-    var y=waveY+waveH+34;
-    var selfY=0;
-    if(r.selfList&&r.selfList.length){ selfY=y+10; y=selfY+62; }
-    var CH=y+34;
-
-    var cv=document.createElement('canvas'); cv.width=CW; cv.height=CH;
-    var c=cv.getContext('2d');
-    c.fillStyle='#FFFFFF'; c.fillRect(0,0,CW,CH);
-    c.fillStyle=SK_RED; c.fillRect(0,0,CW,9);
-
-    wing(c,M,52,46);
-    c.textBaseline='alphabetic';
-    c.fillStyle=K_INK; c.font='800 38px '+FONT;
-    c.fillText('구성원 컨디션 체크', M+60, 92);
-
-    var p=function(v){return String(v).padStart(2,'0');}, d=r.time;
-    var meta=(r.who?r.who+'   ·   ':'')
-      + d.getFullYear()+'.'+p(d.getMonth()+1)+'.'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())
-      + '   ·   '+r.how
-      + '   ·   분석 '+r.dur.toFixed(0)+'초';
+    var colW=CW-M*2, vw=video.videoWidth||480, vh=video.videoHeight||640;
+    var ph=Math.round(colW*vh/vw); if(ph>1260) ph=1260; if(ph<560) ph=560;
+    if(r.mode==='finger') ph=300;   /* a lit fingertip is just red — keep the card about the numbers */
+    var py=168, vy=py+ph+24, vh2=76, bpmBase=vy+vh2+96, metY=bpmBase+44, metH=104, relY=metY+metH+48, waveY=relY+38, waveH=126;
+    var y=waveY+waveH+34, selfY=0; if(r.selfList&&r.selfList.length){ selfY=y+10; y=selfY+62; }
+    var CH=y+34, cv=document.createElement('canvas'); cv.width=CW; cv.height=CH;
+    var c=cv.getContext('2d'), p=function(v){return String(v).padStart(2,'0');}, d=r.time, i;
+    c.fillStyle='#FFFFFF'; c.fillRect(0,0,CW,CH); c.fillStyle=SK_RED; c.fillRect(0,0,CW,9);
+    wing(c,M,52,46); c.textBaseline='alphabetic';
+    c.fillStyle=K_INK; c.font='800 38px '+FONT; c.fillText('구성원 컨디션 체크',M+60,92);
     c.fillStyle=K_INK3; c.font='19px '+FONT;
-    c.fillText(meta, M, 130);
-
-    var vc = r.v.c==='ok'?K_OK:(r.v.c==='mid'?K_WARN:SK_RED);
-    var vbg= r.v.c==='ok'?'#E2F2EC':'#FBF0DF';
-    c.font='800 19px '+FONT;
-    var pillW=c.measureText(r.v.k).width+48;
+    c.fillText((r.who?r.who+'   ·   ':'')+d.getFullYear()+'.'+p(d.getMonth()+1)+'.'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+'   ·   '+r.how+'   ·   분석 '+r.dur.toFixed(0)+'초',M,130);
+    var vc=r.v.c==='ok'?K_OK:(r.v.c==='mid'?K_WARN:SK_RED), vbg=r.v.c==='ok'?'#E2F2EC':'#FBF0DF';
+    c.font='800 19px '+FONT; var pillW=c.measureText(r.v.k).width+48;
     rr(c,CW-M-pillW,50,pillW,42,21); c.fillStyle=vbg; c.fill();
-    c.fillStyle=vc; c.textAlign='center'; c.textBaseline='middle';
-    c.fillText(r.v.k, CW-M-pillW/2, 71);
-    c.textAlign='left'; c.textBaseline='alphabetic';
+    c.fillStyle=vc; c.textAlign='center'; c.textBaseline='middle'; c.fillText(r.v.k,CW-M-pillW/2,71); c.textAlign='left'; c.textBaseline='alphabetic';
 
+    /* photo: the whole frame, never cropped, with the measured regions traced lightly */
     c.save(); rr(c,M,py,colW,ph,18); c.clip();
     c.fillStyle='#0A0708'; c.fillRect(M,py,colW,ph);
-    var sc=Math.min(colW/vw, ph/vh), dw=vw*sc, dh=vh*sc;
-    var dx=M+(colW-dw)/2, dy=py+(ph-dh)/2;
-    if(r.mode==='face'){ c.translate(dx+dw,dy); c.scale(-1,1); }
-    else { c.translate(dx,dy); }
+    var sc=Math.min(colW/vw,ph/vh), dw=vw*sc, dh=vh*sc, dx=M+(colW-dw)/2, dy=py+(ph-dh)/2;
+    c.save();
+    if(r.mode==='face'){ c.translate(dx+dw,dy); c.scale(-1,1); } else c.translate(dx,dy);
     try{ c.drawImage(video,0,0,dw,dh); }catch(e){}
-    c.restore();
+    if(r.mode==='face'&&r.hulls){
+      var ks=dw/work.width, ky=dh/work.height;
+      for(var k=0;k<r.hulls.length;k++){ var P=r.hulls[k]; if(!P) continue;
+        c.beginPath(); c.moveTo(P[0][0]*ks,P[0][1]*ky); for(i=1;i<P.length;i++) c.lineTo(P[i][0]*ks,P[i][1]*ky); c.closePath();
+        c.fillStyle='rgba(62,224,168,.13)'; c.fill(); c.strokeStyle='rgba(62,224,168,.75)'; c.lineWidth=2; c.stroke(); }
+    }
+    c.restore(); c.restore();
     c.strokeStyle=K_LINE; c.lineWidth=1; rr(c,M,py,colW,ph,18); c.stroke();
 
-    c.fillStyle=K_INK; c.font='800 74px '+FONT;
-    c.fillText(String(r.bpm), M, bpmBase);
-    var bw=c.measureText(String(r.bpm)).width;
-    c.fillStyle=SK_RED; c.font='800 22px '+FONT;
-    c.fillText('BPM', M+bw+12, bpmBase-8);
-    c.fillStyle=K_INK3; c.font='17px '+FONT;
-    c.fillText('분당 심박수', M+bw+12, bpmBase+16);
-    if(r.dev!==null){
-      var dt='평소 '+r.base+'  ·  '+(r.dev>0?'+':'')+r.dev;
-      c.font='800 24px '+FONT;
-      var dw2=c.measureText(dt).width+34;
-      rr(c,CW-M-dw2,bpmBase-46,dw2,54,14);
-      c.fillStyle=Math.abs(r.dev)>=12?'#FBF0DF':K_SOFT; c.fill();
-      c.strokeStyle=K_LINE; c.lineWidth=1; c.stroke();
-      c.fillStyle=Math.abs(r.dev)>=12?K_WARN:K_INK; c.textAlign='center';
-      c.fillText(dt, CW-M-dw2/2, bpmBase-10);
-      c.textAlign='left';
-    }
+    /* verdict banner */
+    rr(c,M,vy,colW,vh2,16); c.fillStyle=vbg; c.fill(); c.strokeStyle=vc; c.lineWidth=2; c.stroke();
+    c.fillStyle=vc; c.beginPath(); c.arc(M+40,vy+vh2/2,13,0,Math.PI*2); c.fill();
+    if(r.v.c==='ok'){ c.strokeStyle='#FFFFFF'; c.lineWidth=3.4; c.lineJoin='round'; c.lineCap='round';
+      c.beginPath(); c.moveTo(M+34,vy+vh2/2); c.lineTo(M+39,vy+vh2/2+5); c.lineTo(M+47,vy+vh2/2-6); c.stroke(); }
+    else { c.fillStyle='#FFFFFF'; c.font='800 18px '+FONT; c.textAlign='center'; c.textBaseline='middle'; c.fillText('!',M+40,vy+vh2/2+1); c.textAlign='left'; }
+    c.textBaseline='middle'; c.fillStyle=vc; c.font='800 32px '+FONT; c.fillText(r.v.k,M+68,vy+vh2/2+2);
+    var kw=c.measureText(r.v.k).width;
+    if(r.v.why){ c.fillStyle=K_INK3; c.font='17px '+FONT; c.fillText(r.v.why,M+68+kw+20,vy+vh2/2+2); }
+    c.textBaseline='alphabetic';
 
-    var boxes=[
-      {k:'호흡수', v:r.rpm!==null?String(r.rpm):'—', u:r.rpm!==null?'회/분':''},
-      {k:'HRV RMSSD', v:r.rmssd!==null?String(r.rmssd):'—', u:r.rmssd!==null?'ms':''},
-      {k:'긴장도 지수', v:r.stress!==null?String(r.stress):'—', u:r.stress!==null?'/100':''}
-    ];
-    var bwid=(colW-24)/3, i;
+    c.fillStyle=K_INK; c.font='800 74px '+FONT; c.fillText(String(r.bpm),M,bpmBase);
+    var bw=c.measureText(String(r.bpm)).width;
+    c.fillStyle=SK_RED; c.font='800 22px '+FONT; c.fillText('BPM',M+bw+12,bpmBase-8);
+    c.fillStyle=K_INK3; c.font='17px '+FONT; c.fillText('분당 심박수',M+bw+12,bpmBase+16);
+    if(r.dev!==null){
+      var dt='평소 '+r.base+'  ·  '+(r.dev>0?'+':'')+r.dev; c.font='800 24px '+FONT;
+      var dw2=c.measureText(dt).width+34; rr(c,CW-M-dw2,bpmBase-46,dw2,54,14);
+      c.fillStyle=Math.abs(r.dev)>=12?'#FBF0DF':K_SOFT; c.fill(); c.strokeStyle=K_LINE; c.lineWidth=1; c.stroke();
+      c.fillStyle=Math.abs(r.dev)>=12?K_WARN:K_INK; c.textAlign='center'; c.fillText(dt,CW-M-dw2/2,bpmBase-10); c.textAlign='left';
+    }
+    var boxes=[{k:'호흡수',v:r.rpm!==null?String(r.rpm):'—',u:r.rpm!==null?'회/분':''},
+               {k:'HRV RMSSD',v:r.rmssd!==null?String(r.rmssd):'—',u:r.rmssd!==null?'ms':''},
+               {k:'긴장도 지수',v:r.stress!==null?String(r.stress):'—',u:r.stress!==null?'/100':''}];
+    var bwid=(colW-24)/3;
     for(i=0;i<3;i++){
       var ox=M+i*(bwid+12);
-      rr(c,ox,metY,bwid,metH,13); c.fillStyle=K_SOFT; c.fill();
-      c.strokeStyle=K_LINE; c.lineWidth=1; c.stroke();
-      c.fillStyle=K_INK3; c.font='700 15px '+FONT;
-      c.fillText(boxes[i].k, ox+16, metY+30);
-      c.fillStyle=boxes[i].v==='—'?K_INK3:K_INK; c.font='800 34px '+FONT;
-      c.fillText(boxes[i].v, ox+16, metY+78);
-      if(boxes[i].u){
-        var vwid=c.measureText(boxes[i].v).width;
-        c.fillStyle=K_INK3; c.font='700 14px '+FONT;
-        c.fillText(boxes[i].u, ox+16+vwid+7, metY+78);
-      }
+      rr(c,ox,metY,bwid,metH,13); c.fillStyle=K_SOFT; c.fill(); c.strokeStyle=K_LINE; c.lineWidth=1; c.stroke();
+      c.fillStyle=K_INK3; c.font='700 15px '+FONT; c.fillText(boxes[i].k,ox+16,metY+30);
+      c.fillStyle=boxes[i].v==='—'?K_INK3:K_INK; c.font='800 34px '+FONT; c.fillText(boxes[i].v,ox+16,metY+78);
+      if(boxes[i].u){ var vwid=c.measureText(boxes[i].v).width; c.fillStyle=K_INK3; c.font='700 14px '+FONT; c.fillText(boxes[i].u,ox+16+vwid+7,metY+78); }
+      else if(i>0&&boxes[i].v==='—'){ var vw3=c.measureText('—').width; c.fillStyle=K_INK3; c.font='14px '+FONT; c.fillText(r.dur>=25?'신호 약함':'30초 정밀 측정 시',ox+16+vw3+10,metY+76); }
     }
-
-    c.fillStyle=K_INK3; c.font='700 15px '+FONT;
-    c.fillText('신호 신뢰도', M, relY-12);
+    c.fillStyle=K_INK3; c.font='700 15px '+FONT; c.fillText('신호 신뢰도',M,relY-12);
     c.textAlign='right'; c.fillStyle=r.q<0.5?K_WARN:K_OK;
-    c.fillText(Math.round(r.q*100)+'%  '+(r.q<0.34?'낮음':(r.q<0.62?'보통':'양호')), CW-M, relY-12);
-    c.textAlign='left';
+    c.fillText(Math.round(r.q*100)+'%  '+(r.q<0.34?'낮음':(r.q<0.6?'보통':'양호')),CW-M,relY-12); c.textAlign='left';
     rr(c,M,relY,colW,10,5); c.fillStyle='#EDE7E8'; c.fill();
     rr(c,M,relY,Math.max(10,colW*r.q),10,5); c.fillStyle=r.q<0.5?SK_ORANGE:K_OK; c.fill();
-
     rr(c,M,waveY,colW,waveH,13); c.fillStyle=K_SOFT; c.fill();
     c.save(); rr(c,M,waveY,colW,waveH,13); c.clip();
     c.strokeStyle='#EBE4E5'; c.lineWidth=1;
     for(i=1;i<3;i++){ c.beginPath(); c.moveTo(M,waveY+waveH*i/3); c.lineTo(M+colW,waveY+waveH*i/3); c.stroke(); }
-    c.translate(M,waveY);
-    plot(c,r.sig.subarray(Math.max(0,r.sig.length-FS*8)),colW,waveH,SK_RED,1,2.6);
-    c.restore();
+    c.translate(M,waveY); plot(c,r.sig.subarray(Math.max(0,r.sig.length-FS*8)),colW,waveH,SK_RED,1,2.6); c.restore();
     c.strokeStyle=K_LINE; c.lineWidth=1; rr(c,M,waveY,colW,waveH,13); c.stroke();
-    c.fillStyle=K_INK3; c.font='14px '+FONT;
-    c.fillText('맥파 파형 — 최근 8초', M+2, waveY+waveH+26);
-
+    c.fillStyle=K_INK3; c.font='14px '+FONT; c.fillText('맥파 파형 — 최근 8초',M+2,waveY+waveH+26);
     if(selfY){
-      c.fillStyle=K_INK3; c.font='700 15px '+FONT;
-      c.fillText('작업 전 자가 체크', M, selfY+16);
+      c.fillStyle=K_INK3; c.font='700 15px '+FONT; c.fillText('작업 전 자가 체크',M,selfY+16);
       var cx=M; c.font='700 17px '+FONT;
       for(i=0;i<r.selfList.length;i++){
-        var tw=c.measureText(r.selfList[i]).width+30;
-        if(cx+tw>CW-M) break;
-        rr(c,cx,selfY+26,tw,34,17); c.fillStyle=K_SOFT; c.fill();
-        c.strokeStyle=K_LINE; c.lineWidth=1; c.stroke();
-        c.fillStyle=K_INK; c.textAlign='center'; c.textBaseline='middle';
-        c.fillText(r.selfList[i], cx+tw/2, selfY+43);
-        c.textAlign='left'; c.textBaseline='alphabetic';
-        cx+=tw+9;
+        var tw=c.measureText(r.selfList[i]).width+30; if(cx+tw>CW-M) break;
+        rr(c,cx,selfY+26,tw,34,17); c.fillStyle=K_SOFT; c.fill(); c.strokeStyle=K_LINE; c.lineWidth=1; c.stroke();
+        c.fillStyle=K_INK; c.textAlign='center'; c.textBaseline='middle'; c.fillText(r.selfList[i],cx+tw/2,selfY+43);
+        c.textAlign='left'; c.textBaseline='alphabetic'; cx+=tw+9;
       }
     }
-
     var url=cv.toDataURL('image/png');
     cardImg.src=url; btnSave.href=url;
-    btnSave.download='컨디션체크_'+(r.who?r.who+'_':'')
-      +d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+'.png';
-    cardPanel.hidden=false;
-    cardPanel.scrollIntoView({behavior:'smooth',block:'start'});
+    btnSave.download='컨디션체크_'+(r.who?r.who+'_':'')+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+'.png';
+    cardPanel.hidden=false; cardPanel.scrollIntoView({behavior:'smooth',block:'start'});
   }
 
   /* ================= UI ================= */
   function setMode(m){
     if(mode===m||measuring) return;
     mode=m;
-    tabFace.classList.toggle('on',m==='face');
-    tabFinger.classList.toggle('on',m==='finger');
-    segF.hidden=segC.hidden=(m!=='face');
-    frame.hidden=(m!=='face');
-    roiFinger.hidden=(m!=='finger');
-    roiF.hidden=(m!=='face'||roiMode!=='forehead');
-    roiC.hidden=(m!=='face'||roiMode!=='cheeks');
+    tabFace.classList.toggle('on',m==='face'); tabFinger.classList.toggle('on',m==='finger');
     cardPanel.hidden=true; irrBanner.hidden=true;
     if(running){ stop(); setTimeout(start,250); }
-    else setStatus(m==='finger'
-      ? '카메라를 켜면 플래시가 켜집니다. 후면 렌즈에 손끝을 살짝 얹으세요.'
-      : '얼굴이 화면 안에 들어오게 맞추고 밝은 곳에서 측정하세요.');
-  }
-  function setRoi(mm){
-    if(roiMode===mm||measuring) return;
-    roiMode=mm;
-    segF.classList.toggle('on',mm==='forehead');
-    segC.classList.toggle('on',mm==='cheeks');
-    roiF.hidden=(mm!=='forehead'); roiC.hidden=(mm!=='cheeks');
-    reset();
-    if(running) setStatus('측정 부위를 '+ROIS[mm].label+'로 바꿨습니다. 신호를 다시 모으는 중입니다.');
+    else setStatus(m==='finger' ? '카메라를 켜면 플래시가 켜집니다. 후면 렌즈에 손끝을 살짝 얹으세요.' : '얼굴 전체가 화면 안에 들어오게 맞추고 밝은 곳에서 측정하세요.');
   }
   function setDur(v){
     if(measuring) return;
     DUR=v; bigCount.textContent=v;
-    seg10.classList.toggle('on',v===10);
-    seg15.classList.toggle('on',v===15);
-    seg30.classList.toggle('on',v===30);
-    setStatus(v===30
-      ? '30초 정밀 모드입니다. 손가락 측정에서는 박동 규칙성까지 확인합니다.'
-      : v+'초 분석으로 맞췄습니다. 이미 모인 신호는 차감되므로 실제 대기는 더 짧습니다.');
+    seg10.classList.toggle('on',v===10); seg15.classList.toggle('on',v===15); seg30.classList.toggle('on',v===30);
+    setStatus(v===30 ? '30초 정밀 모드입니다. 손가락 측정에서는 박동 규칙성까지 확인합니다.' : v+'초 분석으로 맞췄습니다. 깨끗하게 모인 신호는 차감되므로 실제 대기는 더 짧습니다.');
   }
-
   tabFace.addEventListener('click',function(){setMode('face');});
   tabFinger.addEventListener('click',function(){setMode('finger');});
-  segF.addEventListener('click',function(){setRoi('forehead');});
-  segC.addEventListener('click',function(){setRoi('cheeks');});
   seg10.addEventListener('click',function(){setDur(10);});
   seg15.addEventListener('click',function(){setDur(15);});
   seg30.addEventListener('click',function(){setDur(30);});
@@ -1167,8 +1657,8 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   btnMeasure.addEventListener('click',measure);
   btnAgain.addEventListener('click',function(){ cardPanel.hidden=true; measure(); });
   who.addEventListener('change',function(){ showDev(parseFloat(bpmEl.textContent)); });
-  window.addEventListener('resize',drawWave);
   document.addEventListener('visibilitychange',function(){ if(!document.hidden&&running) keepAwake(); });
+  window.__cc={get state(){ return {engine:engineState, running:running, live:live, guide:guideState, camLocked:camLocked, n:samples.length, detMs:detMs}; }, last:null};
   drawWave();
 })();
 </script>

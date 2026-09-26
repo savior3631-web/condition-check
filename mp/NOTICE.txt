@@ -1,0 +1,5 @@
+이 폴더의 파일은 Google MediaPipe(Face Landmarker)입니다.
+- vision_bundle.js, wasm/*  : @mediapipe/tasks-vision 1.0.1 (Apache License 2.0)
+- face_landmarker.task      : MediaPipe Face Landmarker 모델 float16 v1 (Apache License 2.0)
+출처: https://github.com/google-ai-edge/mediapipe
+얼굴 인식은 모두 휴대폰 안에서 처리되며, 영상은 외부로 전송되지 않습니다.
