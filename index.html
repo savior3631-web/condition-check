@@ -131,6 +131,10 @@ canvas#wave{display:block;width:100%;height:58px}
 .engine i{width:7px;height:7px;border-radius:50%;background:var(--ink-3);flex:none}
 .engine.pro i{background:var(--ok)}
 .engine.basic i{background:var(--sk-orange)}
+details.diag{margin-top:8px;border:1px dashed var(--line);border-radius:10px;background:var(--surface);box-shadow:none}
+details.diag summary{padding:7px 10px;font-size:12px;color:var(--ink-3)}
+details.diag summary span{font-weight:400}
+pre#diag{margin:0;padding:0 10px 10px;font:11px/1.6 ui-monospace,Menlo,Consolas,monospace;color:var(--ink-2);white-space:pre-wrap;word-break:break-all}
 
 /* ---- metric tiles ---- */
 .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}
@@ -266,6 +270,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       </div>
     </div>
     <div class="engine" id="engineTag"><i></i><span id="engineTxt">분석 엔진 준비 중…</span></div>
+    <details class="diag" id="diagWrap"><summary>진단 정보 <span>— 측정이 안 되면 펼쳐서 캡처해 주세요</span></summary><pre id="diag">카메라를 켜면 표시됩니다.</pre></details>
 
     <div class="tiles">
       <div class="tile wide">
@@ -823,7 +828,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       waveCv=$('wave'), liveTxt=$('liveTxt'), irrBanner=$('irrBanner'),
       engineTag=$('engineTag'), engineTxt=$('engineTxt'),
       logEl=$('log'), logEmpty=$('logEmpty'), logWrap=$('logWrap'),
-      cardPanel=$('cardPanel'), cardImg=$('cardImg'), httpsWarn=$('httpsWarn');
+      cardPanel=$('cardPanel'), cardImg=$('cardImg'), httpsWarn=$('httpsWarn'), diagWrap=$('diagWrap'), diagEl=$('diag');
   var wctx2=waveCv.getContext('2d');
 
   /* ================= face landmark engine ================= */
@@ -857,7 +862,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
      the pixel sampling that carries the pulse keeps running at the full camera frame rate. */
   var WORKER_SRC=[
     'var lm=null;',
-    'function make(fs,model,del){return Vision.FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:model,delegate:del},runningMode:"VIDEO",numFaces:1,minFaceDetectionConfidence:.5,minFacePresenceConfidence:.5,minTrackingConfidence:.5});}',
+    'function make(fs,model,del){return Promise.race([Vision.FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:model,delegate:del},runningMode:"VIDEO",numFaces:1,minFaceDetectionConfidence:.5,minFacePresenceConfidence:.5,minTrackingConfidence:.5}),new Promise(function(_,r){setTimeout(function(){r(new Error("t"))},del==="GPU"?9000:20000);})]);}',
     'self.onmessage=async function(ev){var m=ev.data;',
     ' if(m.type==="init"){',
     '  for(var s=0;s<m.sources.length&&!lm;s++){var src=m.sources[s];',
@@ -940,6 +945,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   var live=null, bpmHist=[], quality=0, goodSince=0, countSecs=10;
   var measuring=false, measureEnd=0, measureStartT=0, lastLive=0, lastBeat=0, lastWave=0, lastHint=0;
   var holdTiles=0;
+  var trackMode='none', lastFail='', hasCapTime=false, lastDiag=0;
   var guideState={k:'', ok:false}, holdUntil=0, faceSince=0, noFaceAt=0;
   var SELF={sleep:null,drink:null,med:null,cond:null};
 
@@ -1062,21 +1068,33 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
 
   /* Auto-exposure and auto white-balance keep nudging the image, and every nudge looks
      like a change in skin colour. Once the picture has settled, freeze them. */
+  /* Auto white-balance keeps shifting skin colour, which looks exactly like a pulse to POS.
+     Freeze it once the picture has settled — then check the picture didn't jump, and undo if it did.
+     Exposure is only frozen together with its ISO: on some phones a manual exposure without ISO
+     falls back to the lowest ISO and the image goes dark. */
+  var lockBaseLuma=0;
+  function recentLuma(n){ var sum=0,c=0; for(var i=samples.length-1;i>=0&&c<n;i--){ if(samples[i].luma>0){ sum+=samples[i].luma; c++; } } return c?sum/c:0; }
   function lockCamera(){
     if(camLocked||!track||!track.getCapabilities||mode==='finger') return;
-    var caps,st; try{ caps=track.getCapabilities(); st=track.getSettings(); }catch(e){ return; }
+    var caps,st; try{ caps=track.getCapabilities(); st=track.getSettings(); }catch(e){ camLocked='n/a'; return; }
     var adv={};
-    if(caps.exposureMode&&caps.exposureMode.indexOf('manual')>=0&&st.exposureTime){ adv.exposureMode='manual'; adv.exposureTime=st.exposureTime; }
     if(caps.whiteBalanceMode&&caps.whiteBalanceMode.indexOf('manual')>=0&&st.colorTemperature){ adv.whiteBalanceMode='manual'; adv.colorTemperature=st.colorTemperature; }
+    if(caps.exposureMode&&caps.exposureMode.indexOf('manual')>=0&&st.exposureTime&&caps.iso&&st.iso){ adv.exposureMode='manual'; adv.exposureTime=st.exposureTime; adv.iso=st.iso; }
     if(!Object.keys(adv).length){ camLocked='n/a'; return; }
-    camLocked='pending';
-    track.applyConstraints({advanced:[adv]}).then(function(){ camLocked=true; }).catch(function(){ camLocked='n/a'; });
+    lockBaseLuma=recentLuma(20);
+    camLocked='pending'; camLockKeys=Object.keys(adv).join(',');
+    track.applyConstraints({advanced:[adv]}).then(function(){ camLocked='verify'; setTimeout(verifyLock,1000); })
+      .catch(function(){ camLocked='n/a'; });
   }
-  function unlockCamera(){
-    if(camLocked!==true||!track) return;
-    try{ track.applyConstraints({advanced:[{exposureMode:'continuous',whiteBalanceMode:'continuous'}]}); }catch(e){}
-    camLocked=false;
+  function verifyLock(){
+    if(camLocked!=='verify') return;
+    var now=recentLuma(15);
+    if(!now||!lockBaseLuma||Math.abs(now-lockBaseLuma)/lockBaseLuma>0.15){
+      try{ track.applyConstraints({advanced:[{exposureMode:'continuous',whiteBalanceMode:'continuous'}]}); }catch(e){}
+      camLocked='reverted';
+    } else camLocked=true;
   }
+  var camLockKeys='';
   function keepAwake(){
     try{ if(navigator.wakeLock&&navigator.wakeLock.request) navigator.wakeLock.request('screen').then(function(w){wake=w;}).catch(function(){}); }catch(e){}
   }
@@ -1114,7 +1132,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     if(video.requestVideoFrameCallback){
       video.requestVideoFrameCallback(function(now,meta){
         if(!running) return;
-        var ts=(meta&&meta.captureTime)?meta.captureTime:now;
+        var ts=(meta&&meta.captureTime)?meta.captureTime:now; hasCapTime=!!(meta&&meta.captureTime);
         onFrame(ts/1000); loop();
       });
     } else {
@@ -1273,8 +1291,8 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       var fresh=lastLm && (pn-lastLmAt)<1500;
       if(tracking && fresh){
         hulls=lmHulls(lastLm,W,H);
-        s.mot=lastMot; s.noseY=lastLm[3]; s.face=true;
-      } else if(!tracking){
+        s.mot=lastMot; s.noseY=lastLm[3]; s.face=true; trackMode='lm';
+      } else if(!tracking || (pn-lastLmAt)>1500){
         var cf=coarseFace();
         if(cf){
           var fw2=cf.w, top=cf.top, cell=cf.cell;
@@ -1283,12 +1301,12 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
             rect((cf.cx-fw2*0.44)*W,(top+cell*5.4)*H,fw2*0.24*W,cell*3.4*H),
             rect((cf.cx+fw2*0.20)*W,(top+cell*5.4)*H,fw2*0.24*W,cell*3.4*H)
           ];
-          curFace={w:fw2, cx:cf.cx, cy:top+cell*6, yaw:0};
+          curFace={w:fw2, cx:cf.cx, cy:top+cell*6, yaw:0, coarse:true};
           if(prevNose){ s.mot=Math.hypot(cf.cx-prevNose.x,top-prevNose.y)/Math.max(0.05,fw2); }
-          prevNose={x:cf.cx,y:top};
-          s.noseY=top; s.face=true;
-        } else curFace=null;
-      } else curFace=null;
+          prevNose={x:cf.cx,y:top}; prevNoseAt=pn;
+          s.noseY=top; s.face=true; trackMode='coarse';
+        } else { curFace=null; trackMode='none'; }
+      } else { trackMode='wait'; }
       lastHulls=hulls;
       if(hulls){
         var sm=sampleHulls(hulls,true);
@@ -1311,7 +1329,31 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     if(pn-lastLive>650){ lastLive=pn; runLive(t); }
     if(pn-lastWave>90){ lastWave=pn; drawWave(); }
     if(pn-lastHint>250){ lastHint=pn; updateGuide(s); }
+    if(pn-lastDiag>1000){ lastDiag=pn; if(diagWrap.open) renderDiag(); }
     beatTick(pn);
+  }
+
+  /* ================= diagnostics (for troubleshooting on a real phone) ================= */
+  function renderDiag(){
+    var n=samples.length, t1=n?samples[n-1].t:0, c2=0, f10=0, n10=0, mv=0;
+    for(var i=n-1;i>=0;i--){ var d=t1-samples[i].t; if(d<=2) c2++; if(d<=10){ n10++; if(samples[i].face) f10++; mv+=samples[i].mot||0; } }
+    var ua=navigator.userAgent, br=(ua.match(/SamsungBrowser\/[\d.]+/)||ua.match(/Chrome\/[\d]+/)||ua.match(/Safari\/[\d]+/)||['?'])[0];
+    var tm={lm:'정밀(얼굴 특징점)',coarse:'예비(피부색 추정)',wait:'정밀 — 인식 대기',none:'얼굴 없음'}[trackMode]||trackMode;
+    var eng = worker?'작업 스레드':landmarker?'메인 스레드':engineState==='loading'?'불러오는 중':'간이';
+    var lk={'n/a':'지원 안 됨',pending:'적용 중',verify:'확인 중',reverted:'되돌림(밝기 변화 감지)',true:'고정됨('+camLockKeys+')',false:'대기'}[String(camLocked)]||String(camLocked);
+    var L=live, reg='—';
+    if(L&&L.ok&&L.regions){ var nm=['이마','볼①','볼②']; reg=L.regions.map(function(r,k){ return r?nm[k]+' '+r.snr.toFixed(1)+'dB/'+Math.round(r.bpm):nm[k]+' —'; }).join('  '); }
+    var st=track&&track.getSettings?track.getSettings():{};
+    diagEl.textContent=[
+      '엔진: '+eng+' · 추적: '+tm+' · 인식 '+Math.round(detMs)+'ms',
+      '프레임: '+(c2/2).toFixed(1)+'fps · 얼굴 '+(n10?Math.round(100*f10/n10):0)+'% · 움직임 '+(n10?(mv/n10).toFixed(4):'—'),
+      '밝기: '+(n?Math.round(samples[n-1].luma):'—')+' · 카메라 고정: '+lk,
+      '영상: '+(video.videoWidth||0)+'×'+(video.videoHeight||0)+(st.frameRate?' @'+Math.round(st.frameRate):'')+' · 시각정보: '+(hasCapTime?'센서':'화면'),
+      '신호: '+(L&&L.ok?('심박 '+Math.round(L.bpm)+' · 신뢰도 '+Math.round(L.q*100)+'% · SNR '+L.snr.toFixed(1)+'dB · 반쪽차 '+(L.split!=null?L.split.toFixed(1):'—')):(L?('분석 불가: '+(L.why||'—')):'대기')),
+      '부위: '+reg,
+      '브라우저: '+br,
+      lastFail?('마지막 실패: '+lastFail):''
+    ].filter(Boolean).join('\n');
   }
 
   /* ================= guidance ================= */
@@ -1325,6 +1367,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     } else {
       var f=curFace;
       if(!f) g={k:'얼굴이 보이지 않습니다 — 화면 안으로 들어와 주세요',warn:true};
+      else if(f.coarse&&(worker||landmarker)) g={k:'얼굴 인식이 불안정합니다 — 정면에서 밝게',warn:true};
       else if(f.w<0.30) g={k:'조금 더 가까이 와 주세요',warn:true};
       else if(f.w>0.82) g={k:'조금 뒤로 물러나 주세요',warn:true};
       else if(Math.abs(f.cx-0.5)>0.2||f.cy<0.2||f.cy>0.72) g={k:'얼굴을 화면 가운데로 맞춰 주세요',warn:true};
@@ -1454,7 +1497,6 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     measureEnd=now+countSecs*1000;
     bigCount.textContent=countSecs; bigCount.classList.add('on');
     btnMeasure.disabled=true; prog.style.width='0';
-    lockCamera();
     setStatus(credit>=1 ? '이미 '+Math.round(credit)+'초가 모여 있어 '+countSecs+'초만 더 재면 됩니다. 움직이지 마세요.' : '측정 중입니다. 움직이지 마세요.');
     tick();
   }
@@ -1474,10 +1516,10 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     var e=eFull;
     if(!e.ok || (eCnt.ok && eCnt.q>e.q+0.08)) e=eCnt;
     window.__cc.last=e;
-    if(!e.ok||e.q<0.3){
-      var why={noface:'얼굴이 충분히 잡히지 않았습니다.',short:'신호가 충분히 모이지 않았습니다.',weak:'신호가 약했습니다.'}[e.why]||'신호 품질이 낮았습니다.';
-      holdUntil=performance.now()+8000;
-      setStatus(why+' 화면 위 안내를 따라 자세와 조명을 맞춘 뒤 다시 측정하세요.','warn');
+    if(!e.ok||e.q<0.2){
+      var why=failReason(e);
+      lastFail=why; holdUntil=performance.now()+10000; if(!diagWrap.open) diagWrap.open=true; renderDiag();
+      setStatus(why,'warn');
       return;
     }
     var name=(who.value||'').trim(), b=baselineFor(name);
@@ -1499,6 +1541,16 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     irrBanner.hidden=!r.irregular;
     holdUntil=performance.now()+15000;
     setStatus(r.irregular ? '측정 완료. 박동 규칙성에 대한 안내가 아래에 있습니다.' : '측정 완료. 아래 결과 카드를 저장하실 수 있습니다.', r.irregular?'warn':null);
+  }
+  /* a failure message should say what to change, not just that it failed */
+  function failReason(e){
+    var W=samples.slice(-FS*10), dark=0, face=0, mv=0;
+    for(var i=0;i<W.length;i++){ if(W[i].face) face++; if(W[i].luma&&W[i].luma<65) dark++; if((W[i].mot||0)>0.012) mv++; }
+    var n=Math.max(1,W.length);
+    if(e.why==='noface'||face/n<0.6) return '얼굴이 '+Math.round(100*face/n)+'%만 인식됐습니다. 얼굴 전체가 화면 안에 들어오게 하고, 정면을 보세요.';
+    if(dark/n>0.4) return '화면이 어두워 맥박 신호가 약했습니다. 더 밝은 곳이나 창가를 향해 다시 측정하세요.';
+    if(mv/n>0.25) return '움직임이 많아 신호가 흔들렸습니다. 폰을 받치고 머리를 고정한 채 다시 측정하세요.';
+    return '맥박 신호가 약했습니다(신호 품질 '+(e.snr!=null?e.snr.toFixed(1)+'dB':'—')+'). 조명을 얼굴 정면으로 두고, 조금 더 가까이에서 다시 측정하세요.';
   }
   function verdict(r){
     if(r.q<0.45) return {k:'재측정 필요',c:'bad',why:'신호 품질이 낮아 값을 신뢰할 수 없습니다'};
