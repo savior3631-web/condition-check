@@ -219,7 +219,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       <button type="button" id="segC">양 볼·안전모</button>
     </div>
     <div class="chips">
-      <button type="button" id="seg5" class="on">5초</button>
+      <button type="button" id="seg10" class="on">10초</button>
       <button type="button" id="seg15">15초</button>
       <button type="button" id="seg30">30초 정밀</button>
     </div>
@@ -264,7 +264,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
         <div class="vwave"><canvas id="wave" width="900" height="116"></canvas></div>
         <div class="vprog"><i id="prog"></i></div>
         <div class="camoff" id="camoff"><div>카메라가 꺼져 있습니다.<br><b>카메라 켜기</b>를 누르면 권한을 묻습니다.</div></div>
-        <div class="bigcount" id="bigCount">5</div>
+        <div class="bigcount" id="bigCount">10</div>
       </div>
     </div>
 
@@ -282,6 +282,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       <div class="tile">
         <div class="lab">호흡수</div>
         <div class="val na" id="mRpm">—</div>
+        <div class="sub" id="rpmWhy">&nbsp;</div>
       </div>
       <div class="tile">
         <div class="lab">HRV RMSSD</div>
@@ -335,9 +336,11 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       <div class="note">
         <h3>측정 시간</h3>
         <ul>
-          <li><b>5초</b> — 심박수 기준 평균오차 1 bpm. 일상 체크에 충분합니다.</li>
-          <li>카메라를 켜둔 동안 신호가 계속 쌓이므로, 5초를 눌러도 <b>직전 구간까지 합쳐 분석</b>합니다. 그래서 호흡수·HRV도 대부분 함께 나옵니다.</li>
-          <li><b>30초</b>는 HRV와 박동 규칙성 판정이 필요할 때 쓰세요.</li>
+          <li>숫자는 <b>분석에 쓰는 시간</b>입니다. 카메라를 켜둔 동안 신호가 계속 쌓이므로, <b>이미 모인 만큼은 차감</b>되고 부족한 시간만 카운트다운합니다. 자세를 잡고 잠시 기다렸다면 실제 대기는 2~3초입니다.</li>
+          <li><b>10초</b> — 심박수·호흡수가 나옵니다. 일상 체크의 기본값.</li>
+          <li><b>15초</b> — 호흡수가 더 안정됩니다.</li>
+          <li><b>30초</b> — HRV와 박동 규칙성 판정까지. 손가락 측정과 함께 쓰세요.</li>
+          <li>흔들려서 신호가 끊기면 모인 시간은 <b>0으로 초기화</b>됩니다. 정직하게 다시 셉니다.</li>
         </ul>
       </div>
       <div class="note">
@@ -380,7 +383,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   var $=function(id){return document.getElementById(id);};
   var video=$('cam'), stage=$('stage'), guide=$('guide'), camoff=$('camoff'), frame=$('frame'),
       tabFace=$('tabFace'), tabFinger=$('tabFinger'),
-      segF=$('segF'), segC=$('segC'), seg5=$('seg5'), seg15=$('seg15'), seg30=$('seg30'),
+      segF=$('segF'), segC=$('segC'), seg10=$('seg10'), seg15=$('seg15'), seg30=$('seg30'),
       roiF=$('roiF'), roiC=$('roiC'), roiFinger=$('roiFinger'),
       btnStart=$('btnStart'), btnMeasure=$('btnMeasure'), btnStop=$('btnStop'),
       btnAgain=$('btnAgain'), btnSave=$('btnSave'), who=$('who'),
@@ -388,7 +391,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       selfStat=$('selfStat'), statusEl=$('status'), bigCount=$('bigCount'), prog=$('prog'),
       bpmEl=$('bpm'), devEl=$('dev'), heartEl=$('heart'),
       qval=$('qval'), qbar=$('qbar'),
-      mRpm=$('mRpm'), mHrv=$('mHrv'), mStress=$('mStress'),
+      mRpm=$('mRpm'), rpmWhy=$('rpmWhy'), mHrv=$('mHrv'), mStress=$('mStress'),
       waveCv=$('wave'), liveTxt=$('liveTxt'), irrBanner=$('irrBanner'),
       logEl=$('log'), logEmpty=$('logEmpty'), logWrap=$('logWrap'),
       cardPanel=$('cardPanel'), cardImg=$('cardImg'), httpsWarn=$('httpsWarn');
@@ -404,12 +407,13 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     finger:  {rects:[[0.30,0.32,0.40,0.26]], label:'손끝'}
   };
 
-  var mode='face', roiMode='forehead', DUR=5;
+  var mode='face', roiMode='forehead', DUR=10;
   var stream=null, track=null, torchOn=false, wake=null;
   var running=false, buf=[], lastSample=0, raf=0;
   var bpmHist=[], curve=null, quality=0, satWarn=false;
   var measuring=false, measureEnd=0, measureStartT=0;
   var lastEstimate=0, lastBeat=0, lastDraw=0;
+  var goodSince=0, countSecs=10;
   var SELF={sleep:null,drink:null,med:null,cond:null};
 
   function setStatus(m,c){ statusEl.textContent=m; statusEl.className='status'+(c?' '+c:''); }
@@ -558,8 +562,9 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     buf=[]; bpmHist=[]; curve=null; quality=0; satWarn=false;
     setVal(bpmEl,null); devEl.innerHTML='&nbsp;'; devEl.className='sub';
     setVal(qval,null); setVal(mRpm,null); setVal(mHrv,null); setVal(mStress,null);
+    rpmWhy.innerHTML='&nbsp;';
     qbar.style.width='0'; qbar.className=''; prog.style.width='0';
-    frame.classList.remove('good'); irrBanner.hidden=true;
+    frame.classList.remove('good'); irrBanner.hidden=true; goodSince=0;
   }
 
   function stop(){
@@ -599,7 +604,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     while(buf.length&&buf[0].t<now/1000-45) buf.shift();
 
     if(buf.length) liveTxt.textContent=(buf[buf.length-1].t-buf[0].t).toFixed(1)+'초';
-    if(measuring) prog.style.width=Math.min(100,100*(1-(measureEnd-now)/(DUR*1000)))+'%';
+    if(measuring) prog.style.width=Math.min(100,100*(1-(measureEnd-now)/(countSecs*1000)))+'%';
     if(now-lastEstimate>700){ lastEstimate=now; live(); }
     if(now-lastDraw>90){ lastDraw=now; drawWave(); }
     beatTick(now);
@@ -699,6 +704,16 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
             n:ib.length, outRatio:outRatio, pnn50:pnn50};
   }
 
+  /* breathing also modulates how BIG each pulse is, not just the baseline.
+     this pulls that amplitude envelope out as a second place to look for it. */
+  function envelope(h,N,bpm){
+    var period=FS*60/bpm;
+    var f=band(h,N,Math.max(1,Math.round(FS*0.05)),Math.round(period*0.9));
+    var e=new Float64Array(N),i;
+    for(i=0;i<N;i++) e[i]=Math.abs(f[i]);
+    return band(e,N,Math.max(1,Math.round(period*0.6)),Math.round(FS*6));
+  }
+
   function analyze(tStart,tEnd){
     if(!buf.length) return null;
     if(buf[0].t>tStart) tStart=buf[0].t;
@@ -721,10 +736,18 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     if(mo>0.006) q*=0.45;
     var out={bpm:hr.f*60, q:q, motion:mo, sig:h, N:rs.N, dur:rs.N/FS};
     if(rs.N>=FS*9){
-      var slow=band(mode==='finger'?rs.R:rs.G,rs.N,Math.round(FS*0.4),Math.round(FS*5));
-      var rp=peak(slow,rs.N,0.13,0.50,0.004);
-      if(rp&&rp.share>0.12) out.rpm=rp.f*60;
-    }
+      var cands=[], bestR=null, ci;
+      cands.push(peak(band(mode==='finger'?rs.R:rs.G,rs.N,Math.round(FS*0.4),Math.round(FS*5)),
+                      rs.N,0.13,0.50,0.004));
+      cands.push(peak(envelope(h,rs.N,out.bpm),rs.N,0.13,0.50,0.004));
+      if(mode!=='finger')
+        cands.push(peak(band(rs.G,rs.N,Math.round(FS*0.25),Math.round(FS*7)),
+                        rs.N,0.13,0.50,0.004));
+      for(ci=0;ci<cands.length;ci++)
+        if(cands[ci] && (!bestR || cands[ci].share>bestR.share)) bestR=cands[ci];
+      if(bestR && bestR.share>0.10){ out.rpm=bestR.f*60; out.rpmQ=bestR.share; }
+      else out.rpmWhy='weak';
+    } else out.rpmWhy='short';
     if(q>=(mode==='finger'?0.25:0.32)){
       var bt=beats(h,rs.N,out.bpm);
       if(bt&&bt.rmssd){
@@ -762,6 +785,8 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     qbar.style.width=qp+'%';
     qbar.className=e.q<0.34?'low':(e.q<0.62?'mid':'');
     frame.classList.toggle('good', e.q>=0.5);
+    /* count only the time the signal has been continuously clean */
+    if(e.q>=0.45){ if(!goodSince) goodSince=performance.now(); } else goodSince=0;
 
     if(e.q>=0.32){
       bpmHist.push(e.bpm);
@@ -771,6 +796,8 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       bpmEl.className='val'; bpmEl.innerHTML=med+'<small>bpm</small>';
       showDev(med);
       setVal(mRpm,e.rpm?Math.round(e.rpm):null,'회/분');
+      rpmWhy.innerHTML = e.rpm ? '&nbsp;'
+        : (e.rpmWhy==='short' ? '10초 이상 필요' : '신호 약함 · 자연스럽게 호흡');
       setVal(mHrv,e.rmssd?Math.round(e.rmssd):null,'ms');
       setVal(mStress,e.stress!==undefined?e.stress:null,'/100');
     }else if(!bpmHist.length){ setVal(bpmEl,null); }
@@ -838,11 +865,18 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     if(!running||measuring) return;
     cardPanel.hidden=true; irrBanner.hidden=true;
     measuring=true;
-    measureStartT=buf.length?buf[buf.length-1].t:performance.now()/1000;
-    measureEnd=performance.now()+DUR*1000;
+    var now=performance.now();
+    var credit=goodSince ? Math.min(DUR-2,(now-goodSince)/1000) : 0;
+    if(credit<0) credit=0;
+    countSecs=Math.max(2,Math.round(DUR-credit));
+    measureStartT=buf.length?buf[buf.length-1].t:now/1000;
+    measureEnd=now+countSecs*1000;
+    bigCount.textContent=countSecs;
     bigCount.classList.add('on');
     btnMeasure.disabled=true; prog.style.width='0';
-    setStatus('측정 중입니다. 움직이지 마세요.');
+    setStatus(credit>=1
+      ? '이미 '+Math.round(credit)+'초가 모여 있어 '+countSecs+'초만 더 재면 됩니다. 움직이지 마세요.'
+      : '측정 중입니다. 움직이지 마세요.');
     tickCount();
   }
   function tickCount(){
@@ -860,8 +894,8 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
 
     /* the countdown window, plus a longer one reusing signal collected while lining up */
     var eShort=analyze(measureStartT,tEnd);
-    var want=Math.max(DUR,15), eLong=null;
-    if(buf.length && tEnd-buf[0].t > DUR+3)
+    var want=DUR, eLong=null;
+    if(buf.length && tEnd-buf[0].t > countSecs+1)
       eLong=analyze(Math.max(buf[0].t, tEnd-want), tEnd);
     var e=eShort;
     if(eLong && !eLong.dark && !eLong.noFinger && isFinite(eLong.bpm)){
@@ -881,7 +915,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       rmssd:e.rmssd?Math.round(e.rmssd):null,
       stress:e.stress!==undefined?e.stress:null,
       irregular:!!e.irregular,
-      q:e.q, dur:e.dur, count:DUR, sig:e.sig,
+      q:e.q, dur:e.dur, count:countSecs, sig:e.sig,
       base:b?b.hr:null, dev:b?Math.round(e.bpm-b.hr):null,
       self:selfScore(), selfList:selfText()
     };
@@ -978,7 +1012,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     var meta=(r.who?r.who+'   ·   ':'')
       + d.getFullYear()+'.'+p(d.getMonth()+1)+'.'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())
       + '   ·   '+r.how
-      + '   ·   측정 '+r.count+'초'+(Math.round(r.dur)!==r.count?' (분석 '+r.dur.toFixed(0)+'초)':'');
+      + '   ·   분석 '+r.dur.toFixed(0)+'초';
     c.fillStyle=K_INK3; c.font='19px '+FONT;
     c.fillText(meta, M, 130);
 
@@ -1113,17 +1147,19 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   function setDur(v){
     if(measuring) return;
     DUR=v; bigCount.textContent=v;
-    seg5.classList.toggle('on',v===5);
+    seg10.classList.toggle('on',v===10);
     seg15.classList.toggle('on',v===15);
     seg30.classList.toggle('on',v===30);
-    if(v===30) setStatus('30초 정밀 모드입니다. 손가락 측정에서는 박동 규칙성까지 확인합니다.');
+    setStatus(v===30
+      ? '30초 정밀 모드입니다. 손가락 측정에서는 박동 규칙성까지 확인합니다.'
+      : v+'초 분석으로 맞췄습니다. 이미 모인 신호는 차감되므로 실제 대기는 더 짧습니다.');
   }
 
   tabFace.addEventListener('click',function(){setMode('face');});
   tabFinger.addEventListener('click',function(){setMode('finger');});
   segF.addEventListener('click',function(){setRoi('forehead');});
   segC.addEventListener('click',function(){setRoi('cheeks');});
-  seg5.addEventListener('click',function(){setDur(5);});
+  seg10.addEventListener('click',function(){setDur(10);});
   seg15.addEventListener('click',function(){setDur(15);});
   seg30.addEventListener('click',function(){setDur(30);});
   btnStart.addEventListener('click',start);
