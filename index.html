@@ -946,6 +946,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   var measuring=false, measureEnd=0, measureStartT=0, lastLive=0, lastBeat=0, lastWave=0, lastHint=0;
   var holdTiles=0;
   var trackMode='none', lastFail='', hasCapTime=false, lastDiag=0;
+  var roiYref=[0,0,0], roiStats={rgb:[0,0,0],clip:0,spec:0}, camTuning=false, camInfo='';
   var guideState={k:'', ok:false}, holdUntil=0, faceSince=0, noFaceAt=0;
   var SELF={sleep:null,drink:null,med:null,cond:null};
 
@@ -1068,32 +1069,80 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
 
   /* Auto-exposure and auto white-balance keep nudging the image, and every nudge looks
      like a change in skin colour. Once the picture has settled, freeze them. */
-  /* Auto white-balance keeps shifting skin colour, which looks exactly like a pulse to POS.
-     Freeze it once the picture has settled — then check the picture didn't jump, and undo if it did.
-     Exposure is only frozen together with its ISO: on some phones a manual exposure without ISO
-     falls back to the lowest ISO and the image goes dark. */
+  /* Face-priority exposure. The camera meters the whole scene, so a face in front of a dark
+     background comes out over-exposed and the red channel clips — which erases the pulse.
+     Before freezing anything, steer the exposure until the skin sits mid-range (~140),
+     then freeze exposure and white balance so auto-adjustments stop leaking into the signal. */
   var lockBaseLuma=0;
   function recentLuma(n){ var sum=0,c=0; for(var i=samples.length-1;i>=0&&c<n;i--){ if(samples[i].luma>0){ sum+=samples[i].luma; c++; } } return c?sum/c:0; }
-  function lockCamera(){
-    if(camLocked||!track||!track.getCapabilities||mode==='finger') return;
+  function lin(v){ return Math.pow(Math.max(1,v)/255,2.2); }
+  function clampN(v,a,b){ return v<a?a:(v>b?b:v); }
+  function tuneAndLock(){
+    if(camLocked||camTuning||!track||!track.getCapabilities||mode==='finger') return;
     var caps,st; try{ caps=track.getCapabilities(); st=track.getSettings(); }catch(e){ camLocked='n/a'; return; }
+    var canManual=!!(caps.exposureMode&&caps.exposureMode.indexOf('manual')>=0&&caps.exposureTime&&st.exposureTime&&caps.iso&&st.iso);
+    var canEV=!!(caps.exposureCompensation&&caps.exposureCompensation.max>caps.exposureCompensation.min);
+    var iso=st.iso, et=st.exposureTime, ev=st.exposureCompensation||0, it=0;
+    camTuning=true; camLocked='tuning';
+    /* meter on the face where the browser allows it */
+    if(curFace){ try{ track.applyConstraints({advanced:[{pointsOfInterest:[{x:clampN(curFace.cx,0,1),y:clampN(curFace.cy,0,1)}]}]}).catch(function(){}); }catch(e){} }
+    function step(){
+      if(!running||mode!=='face'||!track){ camTuning=false; return; }
+      var Y=recentLuma(8);
+      if(!Y){ setTimeout(step,300); return; }
+      if((Y>=105&&Y<=170)||it>=7||(!canManual&&!canEV)) return finishTune(Y>=95&&Y<=185, canManual, caps);
+      it++;
+      var f=lin(140)/lin(Y), p;
+      if(canManual){
+        /* lower ISO first (less noise), then exposure time */
+        var iso2=clampN(iso*f,caps.iso.min,caps.iso.max);
+        if(caps.iso.step) iso2=Math.max(caps.iso.min,Math.round(iso2/caps.iso.step)*caps.iso.step);
+        var rem=f*iso/Math.max(1,iso2), et2=et;
+        if(Math.abs(rem-1)>0.08){
+          et2=et*rem;
+          /* keep exposure a multiple of 1/120 s (60 Hz mains) so room lights don't flicker into the signal */
+          var q=83.333; if(et2>=q) et2=Math.round(et2/q)*q;
+          et2=clampN(et2,caps.exposureTime.min,caps.exposureTime.max);
+        }
+        iso=iso2; et=et2;
+        p=track.applyConstraints({advanced:[{exposureMode:'manual',exposureTime:et,iso:iso}]});
+      } else {
+        var stp=caps.exposureCompensation.step||1/3;
+        ev=clampN(ev+Math.log2(f),caps.exposureCompensation.min,caps.exposureCompensation.max);
+        ev=Math.round(ev/stp)*stp;
+        p=track.applyConstraints({advanced:[{exposureMode:'continuous',exposureCompensation:ev}]});
+      }
+      camInfo=canManual?('노출 '+Math.round(et)+' · ISO '+Math.round(iso)):('보정 '+ev.toFixed(1)+'EV');
+      p.then(function(){ setTimeout(step,450); },function(){ finishTune(false,canManual,caps); });
+    }
+    setTimeout(step,60);
+  }
+  function finishTune(inRange,manualDone,caps){
+    camTuning=false;
+    var st; try{ st=track.getSettings(); }catch(e){ st={}; }
     var adv={};
     if(caps.whiteBalanceMode&&caps.whiteBalanceMode.indexOf('manual')>=0&&st.colorTemperature){ adv.whiteBalanceMode='manual'; adv.colorTemperature=st.colorTemperature; }
-    if(caps.exposureMode&&caps.exposureMode.indexOf('manual')>=0&&st.exposureTime&&caps.iso&&st.iso){ adv.exposureMode='manual'; adv.exposureTime=st.exposureTime; adv.iso=st.iso; }
-    if(!Object.keys(adv).length){ camLocked='n/a'; return; }
-    lockBaseLuma=recentLuma(20);
-    camLocked='pending'; camLockKeys=Object.keys(adv).join(',');
-    track.applyConstraints({advanced:[adv]}).then(function(){ camLocked='verify'; setTimeout(verifyLock,1000); })
-      .catch(function(){ camLocked='n/a'; });
+    if(!manualDone&&caps.exposureMode&&caps.exposureMode.indexOf('manual')>=0&&st.exposureTime&&caps.iso&&st.iso){ adv.exposureMode='manual'; adv.exposureTime=st.exposureTime; adv.iso=st.iso; }
+    var done=function(){
+      camLocked = inRange ? true : 'range';
+      camLockKeys = Object.keys(adv).concat(manualDone?['exposureTime','iso']:[]).join(',');
+      /* the picture just changed — start collecting the pulse again from here */
+      restartSignal();
+      lockBaseLuma=recentLuma(20);
+      setTimeout(verifyLock,1500);
+    };
+    if(Object.keys(adv).length) track.applyConstraints({advanced:[adv]}).then(done,done); else done();
   }
   function verifyLock(){
-    if(camLocked!=='verify') return;
-    var now=recentLuma(15);
-    if(!now||!lockBaseLuma||Math.abs(now-lockBaseLuma)/lockBaseLuma>0.15){
+    if(camLocked!==true&&camLocked!=='range') return;
+    var Y=recentLuma(15);
+    if(Y && (Y<85||Y>200)){
       try{ track.applyConstraints({advanced:[{exposureMode:'continuous',whiteBalanceMode:'continuous'}]}); }catch(e){}
-      camLocked='reverted';
-    } else camLocked=true;
+      camLocked='reverted'; restartSignal();
+    }
   }
+  function restartSignal(){ samples.length=0; faceSince=0; bpmHist=[]; live=null; goodSince=0; quality=0; roiYref=[0,0,0]; }
+  function lockCamera(){ tuneAndLock(); }
   var camLockKeys='';
   function keepAwake(){
     try{ if(navigator.wakeLock&&navigator.wakeLock.request) navigator.wakeLock.request('screen').then(function(w){wake=w;}).catch(function(){}); }catch(e){}
@@ -1105,7 +1154,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   }
   function resetAll(){
     euro=null; faceSince=0; noFaceAt=0; samples=[]; bpmHist=[]; live=null; quality=0; goodSince=0; lastLm=null; lastLmAt=0; lastHulls=null; prevNose=null; curFace=null; lastMot=0; workerBusy=false;
-    camLocked=false; clearTimeout(lockTimer);
+    camLocked=false; camTuning=false; camInfo=''; clearTimeout(lockTimer); lockTimer=0; roiYref=[0,0,0];
     setVal(bpmEl,null); devEl.innerHTML='&nbsp;'; devEl.className='sub';
     setVal(qval,null); setVal(mRpm,null); setVal(mHrv,null); setVal(mStress,null);
     rpmWhy.innerHTML='&nbsp;'; hrvWhy.innerHTML='&nbsp;';
@@ -1171,10 +1220,10 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     if(x1<=x0||y1<=y0) return null;
     var bw=x1-x0+1, bh=y1-y0+1, d;
     try{ d=wctx.getImageData(x0,y0,bw,bh).data; }catch(e){ return null; }
-    var out=[], lumaS=0, lumaN=0;
+    var out=[], rawY=0, rawN=0, clipN=0, specN=0, allN=0, r0=0,g0=0,b0=0;
     for(h=0;h<hulls.length;h++){
       var P=hulls[h], ymin=H,ymax=0; for(k=0;k<P.length;k++){ ymin=Math.min(ymin,P[k][1]); ymax=Math.max(ymax,P[k][1]); }
-      var sr=0,sg=0,sb=0,n=0, ar=0,ag=0,ab=0,an=0;
+      var sr=0,sg=0,sb=0,n=0, ar=0,ag=0,ab=0,an=0, cy=0,cn=0, ref=roiYref[h]||0, spT=ref>0?Math.max(ref*1.3,150):1e9;
       for(var y=Math.max(y0,Math.ceil(ymin)); y<=Math.min(y1,Math.floor(ymax)); y++){
         var yy=y+0.5, xl=1e9, xr=-1e9;
         for(k=0;k<P.length;k++){
@@ -1183,17 +1232,32 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
         }
         if(xr<xl) continue;
         for(var x=Math.max(x0,Math.ceil(xl)); x<=Math.min(x1,Math.floor(xr)); x++){
-          var i=((y-y0)*bw+(x-x0))*4, r=d[i], g=d[i+1], bb=d[i+2];
+          var i=((y-y0)*bw+(x-x0))*4, r=d[i], g=d[i+1], bb=d[i+2], Y=0.299*r+0.587*g+0.114*bb;
+          if(h===0){ rawY+=Y; rawN++; }
+          allN++;
+          if(useMask){
+            /* a channel pinned at the top of its range has lost the pulse entirely */
+            if(r>=250||g>=250||bb>=250){ clipN++; continue; }
+            cy+=Y; cn++;
+            /* shine reflects the light source, not blood under the skin */
+            if(Y>spT){ specN++; continue; }
+          }
           ar+=r; ag+=g; ab+=bb; an++;
           if(!useMask||skinPix(r,g,bb)){ sr+=r; sg+=g; sb+=bb; n++; }
         }
       }
       /* under unusual lighting the chroma test can reject everything; the landmark hull is still skin */
       if(useMask && an>0 && n<an*0.25){ sr=ar; sg=ag; sb=ab; n=an; }
-      if(n){ out.push([sr/n,sg/n,sb/n,n]); if(h===0){ lumaS+=(0.299*sr+0.587*sg+0.114*sb)/n; lumaN++; } }
-      else out.push([0,0,0,0]);
+      /* reference = mean of every unclipped pixel, so the shine cut cannot ratchet itself downward */
+      if(cn) roiYref[h] = ref>0 ? ref*0.85+0.15*(cy/cn) : cy/cn;
+      if(n){
+        out.push([sr/n,sg/n,sb/n,n]);
+        if(h===0){ r0=sr/n; g0=sg/n; b0=sb/n; }
+      } else out.push([0,0,0,0]);
     }
-    return {rois:out, luma:lumaN?lumaS/lumaN:0};
+    roiStats={rgb:[r0,g0,b0], clip:allN?clipN/allN:0, spec:allN?specN/allN:0};
+    /* exposure decisions use every pixel, including the ones dropped above */
+    return {rois:out, luma:rawN?rawY/rawN:0};
   }
 
   /* fallback tracker: topmost band of skin in a coarse map */
@@ -1340,14 +1404,15 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     var ua=navigator.userAgent, br=(ua.match(/SamsungBrowser\/[\d.]+/)||ua.match(/Chrome\/[\d]+/)||ua.match(/Safari\/[\d]+/)||['?'])[0];
     var tm={lm:'정밀(얼굴 특징점)',coarse:'예비(피부색 추정)',wait:'정밀 — 인식 대기',none:'얼굴 없음'}[trackMode]||trackMode;
     var eng = worker?'작업 스레드':landmarker?'메인 스레드':engineState==='loading'?'불러오는 중':'간이';
-    var lk={'n/a':'지원 안 됨',pending:'적용 중',verify:'확인 중',reverted:'되돌림(밝기 변화 감지)',true:'고정됨('+camLockKeys+')',false:'대기'}[String(camLocked)]||String(camLocked);
+    var lk={'n/a':'지원 안 됨',tuning:'밝기 조정 중',range:'조정 한계(밝기 범위 밖)',reverted:'되돌림(밝기 이상)',true:'고정됨('+camLockKeys+')',false:'대기'}[String(camLocked)]||String(camLocked);
     var L=live, reg='—';
     if(L&&L.ok&&L.regions){ var nm=['이마','볼①','볼②']; reg=L.regions.map(function(r,k){ return r?nm[k]+' '+r.snr.toFixed(1)+'dB/'+Math.round(r.bpm):nm[k]+' —'; }).join('  '); }
     var st=track&&track.getSettings?track.getSettings():{};
     diagEl.textContent=[
       '엔진: '+eng+' · 추적: '+tm+' · 인식 '+Math.round(detMs)+'ms',
       '프레임: '+(c2/2).toFixed(1)+'fps · 얼굴 '+(n10?Math.round(100*f10/n10):0)+'% · 움직임 '+(n10?(mv/n10).toFixed(4):'—'),
-      '밝기: '+(n?Math.round(samples[n-1].luma):'—')+' · 카메라 고정: '+lk,
+      '밝기: '+(n?Math.round(samples[n-1].luma):'—')+' (적정 110~165) · 카메라: '+lk+(camInfo?' · '+camInfo:''),
+      '피부: RGB '+roiStats.rgb.map(function(v){return Math.round(v);}).join('/')+' · 포화 '+Math.round(roiStats.clip*100)+'% · 반사 '+Math.round(roiStats.spec*100)+'%',
       '영상: '+(video.videoWidth||0)+'×'+(video.videoHeight||0)+(st.frameRate?' @'+Math.round(st.frameRate):'')+' · 시각정보: '+(hasCapTime?'센서':'화면'),
       '신호: '+(L&&L.ok?('심박 '+Math.round(L.bpm)+' · 신뢰도 '+Math.round(L.q*100)+'% · SNR '+L.snr.toFixed(1)+'dB · 반쪽차 '+(L.split!=null?L.split.toFixed(1):'—')):(L?('분석 불가: '+(L.why||'—')):'대기')),
       '부위: '+reg,
@@ -1372,13 +1437,16 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       else if(f.w>0.82) g={k:'조금 뒤로 물러나 주세요',warn:true};
       else if(Math.abs(f.cx-0.5)>0.2||f.cy<0.2||f.cy>0.72) g={k:'얼굴을 화면 가운데로 맞춰 주세요',warn:true};
       else if(Math.abs(f.yaw)>0.13) g={k:'정면을 바라봐 주세요',warn:true};
-      else if(s.luma&&s.luma<60) g={k:'너무 어둡습니다 — 더 밝은 곳에서',warn:true};
-      else if(s.luma>228) g={k:'빛이 너무 강합니다 — 직사광을 피해 주세요',warn:true};
+      else if(camTuning) g={k:'카메라 밝기를 얼굴에 맞추는 중…'};
+      else if(s.luma&&s.luma<70) g={k:'너무 어둡습니다 — 더 밝은 곳에서',warn:true};
+      else if(s.luma>195) g={k:'얼굴이 너무 밝습니다 — 조명 바로 아래를 피해 주세요',warn:true};
       else if(recentMotion()>0.012) g={k:'움직이지 말고 잠시 멈춰 주세요',warn:true};
       else if(live&&live.ok&&live.q>=0.45) g={k:'측정 준비 완료',ok:true};
       else g={k:'신호를 모으는 중… 편하게 호흡하세요'};
       /* once the framing is right, freeze exposure so auto-brightness can't pollute the signal */
-      if(!g.warn && !camLocked && !lockTimer) lockTimer=setTimeout(function(){ lockTimer=0; lockCamera(); },1200);
+      /* exposure is tuned as soon as the face is framed — brightness itself is what it fixes */
+      var framed = f && !f.coarse && f.w>=0.30 && f.w<=0.82 && Math.abs(f.cx-0.5)<=0.2 && Math.abs(f.yaw)<=0.13 && recentMotion()<=0.012;
+      if(framed && !camLocked && !camTuning && !lockTimer) lockTimer=setTimeout(function(){ lockTimer=0; lockCamera(); },900);
     }
     hint.textContent=g.k;
     hint.className='hint'+(g.ok?' ok':g.warn?' warn':'');
@@ -1488,6 +1556,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   /* ================= measurement ================= */
   function measure(){
     if(!running||measuring) return;
+    if(camTuning){ setStatus('카메라 밝기를 얼굴에 맞추는 중입니다. 1~2초 뒤에 다시 눌러 주세요.','warn'); return; }
     cardPanel.hidden=true; irrBanner.hidden=true;
     measuring=true;
     var now=performance.now();
