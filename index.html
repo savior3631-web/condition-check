@@ -134,6 +134,7 @@ canvas#wave{display:block;width:100%;height:58px}
 details.diag{margin-top:8px;border:1px dashed var(--line);border-radius:10px;background:var(--surface);box-shadow:none}
 details.diag summary{padding:7px 10px;font-size:12px;color:var(--ink-3)}
 details.diag summary span{font-weight:400}
+.dumpBtn{display:block;width:calc(100% - 20px);margin:0 10px 10px;padding:9px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink-2);font:inherit;font-size:12px}
 pre#diag{margin:0;padding:0 10px 10px;font:11px/1.6 ui-monospace,Menlo,Consolas,monospace;color:var(--ink-2);white-space:pre-wrap;word-break:break-all}
 
 /* ---- metric tiles ---- */
@@ -270,7 +271,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       </div>
     </div>
     <div class="engine" id="engineTag"><i></i><span id="engineTxt">분석 엔진 준비 중…</span></div>
-    <details class="diag" id="diagWrap"><summary>진단 정보 <span>— 측정이 안 되면 펼쳐서 캡처해 주세요</span></summary><pre id="diag">카메라를 켜면 표시됩니다.</pre></details>
+    <details class="diag" id="diagWrap"><summary>진단 정보 <span>— 측정이 안 되면 펼쳐서 캡처해 주세요</span></summary><pre id="diag">카메라를 켜면 표시됩니다.</pre><button type="button" id="btnDump" class="dumpBtn">측정 신호 파일로 저장 (얼굴 영상 없음 · 개발 분석용)</button></details>
 
     <div class="tiles">
       <div class="tile wide">
@@ -373,7 +374,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   </details>
 
   <footer>
-    얼굴 특징점 추적(MediaPipe Face Landmarker) · POS 알고리즘(Wang 외, IEEE TBME 2017) · 버터워스 대역필터 · Welch 스펙트럼 · SNR 가중 3부위 융합 ·
+    얼굴 특징점 추적(MediaPipe Face Landmarker) · POS 알고리즘(Wang 외, IEEE TBME 2017) · 버터워스 대역필터 · Welch 스펙트럼 · 27지점 스펙트럼 투표·교차검증 · 혈류 색서명(PBV, de Haan 2014) 검사 ·
     박동 템플릿 정합으로 HRV 산출 · 호흡은 심박변동·맥파 크기·기준선·머리 움직임 4경로 융합.
   </footer>
 </div>
@@ -492,12 +493,56 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     return ps.f0+(i+d)*ps.step;
   }
 
-  /* ---------- SNR as in de Haan & Jeanne 2013: fundamental + first harmonic vs the rest ---------- */
+  /* ---------- least-squares removal of motion regressors ---------- */
+  function regressOut(y,X){
+    var m=X.length, A=[], bb=[], i, j, n=y.length;
+    for(i=0;i<m;i++){ A.push(new Float64Array(m)); var s2=0; for(var t=0;t<n;t++) s2+=X[i][t]*y[t]; bb.push(s2);
+      for(j=0;j<m;j++){ var s3=0; for(t=0;t<n;t++) s3+=X[i][t]*X[j][t]; A[i][j]=s3; } }
+    for(i=0;i<m;i++) A[i][i]+=1e-9+A[i][i]*1e-3;
+    /* Gaussian elimination (m=3) */
+    var M=A.map(function(r,ix){ return Array.prototype.slice.call(r).concat([bb[ix]]); });
+    for(i=0;i<m;i++){
+      var p=i; for(j=i+1;j<m;j++) if(Math.abs(M[j][i])>Math.abs(M[p][i])) p=j;
+      var tmp=M[i]; M[i]=M[p]; M[p]=tmp; if(Math.abs(M[i][i])<1e-15) return y;
+      for(j=i+1;j<m;j++){ var fct=M[j][i]/M[i][i]; for(var c=i;c<=m;c++) M[j][c]-=fct*M[i][c]; }
+    }
+    var beta=new Float64Array(m);
+    for(i=m-1;i>=0;i--){ var v=M[i][m]; for(j=i+1;j<m;j++) v-=M[i][j]*beta[j]; beta[i]=v/M[i][i]; }
+    var out=new Float64Array(n);
+    for(var t2=0;t2<n;t2++){ var e=y[t2]; for(i=0;i<m;i++) e-=beta[i]*X[i][t2]; out[t2]=e; }
+    return out;
+  }
+  /* ---------- clamp motion spikes to a robust spread ---------- */
+  function winsor(x,k){
+    var a=[], i; for(i=0;i<x.length;i++) a.push(Math.abs(x[i]));
+    var lim=k*1.4826*median(a); if(!(lim>0)) return x;
+    for(i=0;i<x.length;i++){ if(x[i]>lim) x[i]=lim; else if(x[i]<-lim) x[i]=-lim; }
+    return x;
+  }
+
+  /* ---------- harmonic-aware peak ----------
+     A real pulse wave (sharp upstroke, dicrotic notch) puts a lot of power in its 2nd and 3rd
+     harmonics; at a slow heart rate the 3rd can outshine the fundamental in a noisy window.
+     Scoring each candidate with its own 2nd harmonic makes the fundamental win. */
+  function Pat(ps,f){ var x=(f-ps.f0)/ps.step, i=Math.floor(x); if(i<0||i>=ps.n-1) return 0; var u=x-i; return ps.P[i]*(1-u)+ps.P[i+1]*u; }
+  function hpeak(ps){
+    var best=-1, bi=0, fmax=ps.f0+(ps.n-1)*ps.step;
+    for(var i=0;i<ps.n;i++){
+      var f=ps.f0+i*ps.step; if(f<0.7||f>3.3) continue;
+      var sc=ps.P[i]+(2*f<=fmax?0.6*Pat(ps,2*f):0);
+      if(sc>best){ best=sc; bi=i; }
+    }
+    /* settle on the local spectral maximum near the winner */
+    var lo=Math.max(0,bi-3), hi=Math.min(ps.n,bi+4), j=argmax(ps.P,lo,hi);
+    return peakFreq(ps,j);
+  }
+
+  /* ---------- SNR as in de Haan & Jeanne 2013 (fundamental + harmonics vs the rest) ---------- */
   function snrAt(ps,f){
     var sig=0,noi=0;
     for(var i=0;i<ps.n;i++){
       var fi=ps.f0+i*ps.step;
-      if(Math.abs(fi-f)<=0.1||Math.abs(fi-2*f)<=0.2) sig+=ps.P[i]; else noi+=ps.P[i];
+      if(Math.abs(fi-f)<=0.1||Math.abs(fi-2*f)<=0.2||Math.abs(fi-3*f)<=0.25) sig+=ps.P[i]; else noi+=ps.P[i];
     }
     return 10*Math.log10((sig+1e-20)/(noi+1e-20));
   }
@@ -683,14 +728,32 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     }
     if(mode==='face' && faceFrac<0.6) return {ok:false, why:'noface'};
 
-    var nR=S[0].rois.length, chans=[], best=null, snrs=[];
+    /* the tracker can fall back to a coarser region set mid-window; use the dominant layout only */
+    var cntLen={}, nR=0, bestCnt=-1;
+    for(i=0;i<S.length;i++){ var ln=S[i].rois?S[i].rois.length:0; cntLen[ln]=(cntLen[ln]||0)+1; }
+    for(var key in cntLen) if(+key>0 && cntLen[key]>bestCnt){ bestCnt=cntLen[key]; nR=+key; }
+    if(!nR) return {ok:false, why:'weak'};
+    var groups=(opts.groups && opts.groups.length===nR) ? opts.groups : null;
+
+    /* head-pose regressors: whatever of the pulse band is explained by the face moving is not pulse */
+    var MR=null;
+    if(mode==='face'){
+      var mt=[], mx=[], my=[], mw=[];
+      for(i=0;i<S.length;i++) if(S[i].fx!=null){ mt.push(S[i].t); mx.push(S[i].fx); my.push(S[i].fy); mw.push(S[i].fw); }
+      if(mt.length>=S.length*0.8 && mt.length>FS*4){
+        MR=[mx,my,mw].map(function(v){ var z=resample(mt,v,t0,t1,FS); return z?bandpass(z,0.65,3.5):null; });
+        if(!MR[0]||!MR[1]||!MR[2]) MR=null;
+      }
+    }
+
+    var chans=[], best=null;
     for(k=0;k<nR;k++){
       var r=[],g=[],b=[],tt=[];
       for(i=0;i<S.length;i++){
-        var q=S[i].rois[k];
-        if(q && q[3]>=20){ tt.push(S[i].t); r.push(q[0]); g.push(q[1]); b.push(q[2]); }
+        var q=S[i].rois&&S[i].rois.length===nR?S[i].rois[k]:null;
+        if(q && q[3]>=(groups?4:20)){ tt.push(S[i].t); r.push(q[0]); g.push(q[1]); b.push(q[2]); }
       }
-      if(tt.length<FS*4){ chans.push(null); continue; }
+      if(tt.length<Math.max(FS*4,(t1-t0)*FS*0.6)){ chans.push(null); continue; }
       var R=resample(tt,r,t0,t1,FS), G=resample(tt,g,t0,t1,FS), B=resample(tt,b,t0,t1,FS);
       if(!R) { chans.push(null); continue; }
       var raw;
@@ -701,34 +764,77 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
         for(i=0;i<src.length;i++) raw[i]=-(src[i]-mu)/Math.max(1,mu);
       } else {
         /* POS comes out with the systolic edge pointing down; flip it so beats are maxima */
-        raw=pos(R,G,B,R.length);
+        raw=pos(R,G,B,R.length,opts.xPosWin?Math.round(opts.xPosWin*FS):0);
         for(i=0;i<raw.length;i++) raw[i]=-raw[i];
       }
       var f=bandpass(raw,0.65,3.5);
-      var ps=welch(f,FS,0.65,3.5,0.01,Math.min(dur,8));
-      var pi_=argmax(ps.P), fq=peakFreq(ps,pi_), snr=snrAt(ps,fq);
-      var ch={f:f, raw:raw, G:G, R:R, ps:ps, fq:fq, snr:snr, sdG:sd(G)};
-      chans.push(ch); snrs.push(snr);
-      if(!best||snr>best.snr) best=ch;
+      if(MR && MR[0].length===f.length) f=regressOut(f,MR);
+      winsor(f,3.5);
+      var ps=welch(f,FS,0.65,3.5,groups?0.02:0.01,Math.min(dur,8));
+      var tot=0; for(i=0;i<ps.n;i++) tot+=ps.P[i];
+      var ch={f:f, raw:raw, G:G, R:R, Bc:B, ps:ps, tot:tot||1, sdG:sd(G), sdf:sd(f)||1, g:groups?groups[k]:k, idx:k};
+      chans.push(ch);
     }
-    if(!best) return {ok:false, why:'weak'};
+    if(opts.xGroupPos!==0 && groups && mode==='face'){
+      /* also pool each region's colour before POS: a steadier colour estimate for the projection */
+      var nG0=Math.max.apply(null,groups)+1;
+      for(var g0=0;g0<nG0;g0++){
+        var tt3=[],r3=[],g3=[],b3=[];
+        for(i=0;i<S.length;i++){ var ro=S[i].rois; if(!ro||ro.length!==nR) continue; var sr=0,sg=0,sb=0,sw=0;
+          for(k=0;k<nR;k++) if(groups[k]===g0&&ro[k][3]>=4){ sr+=ro[k][0]*ro[k][3]; sg+=ro[k][1]*ro[k][3]; sb+=ro[k][2]*ro[k][3]; sw+=ro[k][3]; }
+          if(sw>0){ tt3.push(S[i].t); r3.push(sr/sw); g3.push(sg/sw); b3.push(sb/sw); } }
+        if(tt3.length<FS*4) continue;
+        var R3=resample(tt3,r3,t0,t1,FS),G3=resample(tt3,g3,t0,t1,FS),B3=resample(tt3,b3,t0,t1,FS);
+        var raw3=pos(R3,G3,B3,R3.length); for(i=0;i<raw3.length;i++) raw3[i]=-raw3[i];
+        var f3=bandpass(raw3,0.65,3.5); if(MR&&MR[0].length===f3.length) f3=regressOut(f3,MR); winsor(f3,3.5);
+        var ps3=welch(f3,FS,0.65,3.5,0.02,Math.min(dur,8)), tot3=0; for(i=0;i<ps3.n;i++) tot3+=ps3.P[i];
+        chans.push({f:f3,raw:raw3,G:G3,R:R3,Bc:B3,ps:ps3,tot:tot3||1,sdG:sd(G3),sdf:sd(f3)||1,g:g0,idx:nR+g0});
+      }
+    }
+    var live=chans.filter(function(c){return !!c;});
+    if(!live.length) return {ok:false, why:'weak'};
 
-    /* fuse regions, weighting each by its signal-to-noise ratio */
+    /* spectral voting: noise peaks land at random frequencies patch by patch, the pulse lands
+       at the same one everywhere — so the normalised spectra are summed before picking a peak */
+    function vote(list,wf){
+      var ps0=list[0].ps, C=new Float64Array(ps0.n);
+      for(var a=0;a<list.length;a++){ var w=wf(list[a]); if(!(w>0)) continue; for(var j=0;j<ps0.n;j++) C[j]+=w*list[a].ps.P[j]/list[a].tot; }
+      return {P:C, f0:ps0.f0, step:ps0.step, n:ps0.n};
+    }
+    var V1=vote(live,function(){return 1;}), f1=hpeak(V1);
+    for(k=0;k<live.length;k++){
+      live[k].snr=snrAt(live[k].ps,f1);
+      live[k].fq=peakFreq(live[k].ps,argmax(live[k].ps.P));
+      /* maximal-ratio weighting (linear SNR), capped so one patch cannot own the result */
+      live[k].w=Math.min(8,Math.pow(10,live[k].snr/10));
+    }
+    var V2=vote(live,function(c){return c.w;}), f2=hpeak(V2);
+    for(k=0;k<live.length;k++){ live[k].snr=snrAt(live[k].ps,f2); live[k].w=Math.min(8,Math.pow(10,live[k].snr/10)); }
+    live.sort(function(a,b){return b.w-a.w;});
+    best=live[0];
+    /* keep the stronger half (at least 3) so dead patches don't dilute the waveform */
+    var keep=opts.xKeepAll?live.slice():live.filter(function(c,ix){ return ix<Math.max(3,Math.ceil(live.length/(opts.xKeepDiv||2))) && c.snr>best.snr-8; });
+
     var N=best.f.length, fused=new Float64Array(N), wsum=0;
-    for(k=0;k<chans.length;k++){
-      var c=chans[k]; if(!c||c.f.length!==N) continue;
-      if(c.snr < best.snr-6) continue;
-      var w=Math.pow(10,c.snr/10), s0=sd(c.f)||1;
-      /* keep polarity consistent with the best region */
-      var cor=0; for(i=0;i<N;i++) cor+=c.f[i]*best.f[i];
-      var sgn=cor>=0?1:-1;
-      for(i=0;i<N;i++) fused[i]+=sgn*w*c.f[i]/s0;
-      wsum+=w;
+    for(k=0;k<keep.length;k++){
+      var c=keep[k]; if(c.f.length!==N) continue;
+      for(i=0;i<N;i++) fused[i]+=c.w*c.f[i]/c.sdf;
+      wsum+=c.w;
     }
     if(wsum>0) for(i=0;i<N;i++) fused[i]/=wsum;
 
+    /* region summary (forehead / cheek / cheek) for display and the agreement test */
+    var gIds=[]; for(k=0;k<chans.length;k++) if(chans[k] && gIds.indexOf(chans[k].g)<0) gIds.push(chans[k].g);
+    var nG=groups?Math.max.apply(null,groups)+1:nR, regionsOut=[];
+    for(var gi=0;gi<nG;gi++){
+      var mem=live.filter(function(c){return c.g===gi;});
+      if(!mem.length){ regionsOut.push(null); continue; }
+      var Vg=vote(mem,function(c){return Math.max(0.05,c.w);}), fg=hpeak(Vg);
+      var sg=-Infinity; for(k=0;k<mem.length;k++) sg=Math.max(sg,snrAt(mem[k].ps,fg));
+      regionsOut.push({snr:sg, bpm:fg*60, fq:fg, n:mem.length});
+    }
     var PS=welch(fused,FS,0.65,3.5,0.01,Math.min(dur,8));
-    var bi=argmax(PS.P), fHR=peakFreq(PS,bi);
+    var fHR=hpeak(PS), bi=Math.round((fHR-PS.f0)/PS.step);
     /* guard against locking onto the second harmonic */
     var hb=Math.round((fHR/2-PS.f0)/PS.step);
     if(fHR/2>=0.75 && hb>=0 && hb<PS.n){
@@ -737,8 +843,68 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     }
     var SNR=snrAt(PS,fHR), bpm=fHR*60;
 
+    /* ---------- cross-validated SNR ----------
+       Picking the loudest patches and then measuring how loud they are is circular: pure noise
+       would pass. So the patches are split into two interleaved teams; each team picks its own
+       frequency and weights, and is scored at the frequency the OTHER team found. */
+    var snrCV=SNR, fA=null, fB=null;
+    if(groups && live.length>=6){
+      var team=function(par){
+        var mem=live.filter(function(c){ return c.idx%2===par; });
+        if(mem.length<3) return null;
+        var V=vote(mem,function(c){return 1;}), ff=hpeak(V);
+        var ws=mem.map(function(c){ return Math.min(8,Math.pow(10,snrAt(c.ps,ff)/10)); });
+        var Vw=vote(mem,function(c){ return ws[mem.indexOf(c)]; }); ff=hpeak(Vw);
+        var ord=mem.map(function(c,ix){return ix;}).sort(function(x,y){return ws[y]-ws[x];}).slice(0,Math.max(3,Math.ceil(mem.length/2)));
+        var fu=new Float64Array(N), ww=0;
+        ord.forEach(function(ix){ var c=mem[ix]; if(c.f.length!==N) return; for(var t=0;t<N;t++) fu[t]+=ws[ix]*c.f[t]/c.sdf; ww+=ws[ix]; });
+        return {f:ff, ps:welch(fu,FS,0.65,3.5,0.02,Math.min(dur,8))};
+      };
+      var TA=team(0), TB=team(1);
+      if(TA&&TB){
+        fA=TA.f*60; fB=TB.f*60;
+        snrCV=Math.min(SNR,(snrAt(TA.ps,TB.f)+snrAt(TB.ps,TA.f))/2);
+      }
+    }
+
+    /* ---------- colour signature (PBV, de Haan & van Leest 2014) ----------
+       Blood absorbs green far more than red or blue, so a real pulse brightens and darkens the
+       green channel most, all three in step. A lamp, a white-balance hunt or a shadow does not. */
+    var pbv=null;
+    if(mode==='face'){
+      var nr=new Float64Array(N), ng=new Float64Array(N), nb=new Float64Array(N), wz=0;
+      for(k=0;k<keep.length;k++){
+        var c2=keep[k]; if(c2.R.length!==N) continue;
+        var m1=mean(c2.R), m2=mean(c2.G), m3=mean(c2.Bc);
+        if(!(m1>0&&m2>0&&m3>0)) continue;
+        for(i=0;i<N;i++){ nr[i]+=c2.w*c2.R[i]/m1; ng[i]+=c2.w*c2.G[i]/m2; nb[i]+=c2.w*c2.Bc[i]/m3; }
+        wz+=c2.w;
+      }
+      if(wz>0){
+        var fr_=bandpass(nr,0.65,3.5), fg_=bandpass(ng,0.65,3.5), fb_=bandpass(nb,0.65,3.5);
+        var ff=0, br=0, bg=0, bbv=0;
+        for(i=0;i<N;i++){ ff+=fused[i]*fused[i]; br+=fr_[i]*fused[i]; bg+=fg_[i]*fused[i]; bbv+=fb_[i]*fused[i]; }
+        if(ff>0){ br/=ff; bg/=ff; bbv/=ff; }
+        /* POS output is sign-flipped so beats are maxima = less blood = brighter */
+        pbv={r:br/wz, g:bg/wz, b:bbv/wz};
+        pbv.ratio = Math.abs(pbv.g) / Math.max(Math.abs(pbv.r), Math.abs(pbv.b), 1e-12);
+      }
+    }
+
     /* ---------- confidence ---------- */
-    var q=clamp((SNR+4)/8,0,1);
+    /* without the cross-check (coarse tracker) the raw SNR is optimistic, so demand more of it */
+    var q=clamp((snrCV+(mode==='face'&&fA===null?2.5:3.5))/8,0,1);
+    if(pbv){
+      /* compare colour DIRECTION only (mean removed), so a brightness wobble that happens to
+         ride along with the pulse cannot fake or hide the signature */
+      var mu3=(pbv.r+pbv.g+pbv.b)/3, v=[pbv.r-mu3,pbv.g-mu3,pbv.b-mu3], P0=[-0.33,-0.77,-0.53], mp=(P0[0]+P0[1]+P0[2])/3;
+      var pc=[P0[0]-mp,P0[1]-mp,P0[2]-mp], dot=v[0]*pc[0]+v[1]*pc[1]+v[2]*pc[2];
+      var nv=Math.hypot(v[0],v[1],v[2]), np_=Math.hypot(pc[0],pc[1],pc[2]);
+      pbv.cos = nv>0 ? dot/(nv*np_) : 0;
+      pbv.ok = pbv.cos>=0.5;
+      if(pbv.cos<0) q*=0.45; else if(pbv.cos<0.5) q*=0.8;
+    }
+    if(fA!==null && Math.abs(fA-fB)>Math.max(6,60/dur*1.2)) q*=0.25;
     if(mode==='face') q*=clamp((faceFrac-0.6)/0.35,0,1);
     q*=1-clamp(motBad*1.6,0,0.85);
     if(lumaSwing>0.35) q*=0.45; else if(lumaSwing>0.2) q*=0.75;
@@ -746,23 +912,42 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     if(mode==='face'&&(bpm<45||bpm>160)) q*=0.5;
     if(mode==='finger'&&best.sdG<0.05&&sd(best.R)<0.05) q*=0.2;
     /* a real pulse gives the same answer in each half of the window */
-    var split=null;
+    var split=null, q0=q;
     if(N>=FS*8){
-      var h1=welch(fused.subarray(0,N>>1),FS,0.65,3.5,0.02,dur/2), h2=welch(fused.subarray(N>>1),FS,0.65,3.5,0.02,dur/2);
-      var fa=peakFreq(h1,argmax(h1.P))*60, fb=peakFreq(h2,argmax(h2.P))*60;
-      split=Math.abs(fa-fb);
-      if(split>12) q*=0.2; else if(split>7) q*=0.55;
+      var halfEst=function(a,b){
+        if(keep.length>=3){
+          /* each half judged by the same patch vote as the whole — far steadier than one fused trace */
+          var C=null, ps1;
+          for(var z=0;z<keep.length;z++){
+            ps1=welch(keep[z].f.subarray(a,b),FS,0.65,3.5,0.02,(b-a)/FS);
+            var tt2=0,j; for(j=0;j<ps1.n;j++) tt2+=ps1.P[j];
+            if(!C) C=new Float64Array(ps1.n);
+            for(j=0;j<ps1.n;j++) C[j]+=keep[z].w*ps1.P[j]/(tt2||1);
+          }
+          return hpeak({P:C,f0:ps1.f0,step:ps1.step,n:ps1.n})*60;
+        }
+        var hh=welch(fused.subarray(a,b),FS,0.65,3.5,0.02,(b-a)/FS); return hpeak(hh)*60;
+      };
+      var fa=halfEst(0,N>>1), fb=halfEst(N>>1,N);
+      /* a half that lands on the 2nd/3rd harmonic of the full-window rate still shows the same rhythm */
+      var dev=function(e){ var m=Infinity; for(var h=1;h<=3;h++) m=Math.min(m,Math.abs(e/h-bpm)); return m; };
+      split=Math.max(dev(fa),dev(fb));
+      /* a half-window can only resolve ~1/(its length) Hz, so the tolerance scales with it */
+      var tol=Math.max(7,60/(dur/2)*0.9);
+      if(split>tol*1.8) q*=0.2; else if(split>tol) q*=0.55;
     }
+    var qSplit=q/(q0||1);
 
     /* independent skin regions of one face must agree on the rate — noise does not */
     var valid=0, agree=0;
-    for(k=0;k<chans.length;k++){ if(!chans[k]) continue; valid++; if(Math.abs(chans[k].fq*60-bpm)<=6) agree++; }
-    if(mode==='face'&&valid>=3){ if(agree<2) q*=0.3; }
+    for(k=0;k<regionsOut.length;k++){ if(!regionsOut[k]) continue; valid++; if(Math.abs(regionsOut[k].bpm-bpm)<=6) agree++; }
+    var qBeforeAgree=q;
+    if(mode==='face'&&valid>=3){ if(agree<2) q*=(SNR>=3?0.6:0.3); }
     else if(mode==='face'&&valid===2){ if(agree<2) q*=0.5; }
 
     var out={ok:true, mode:mode, bpm:bpm, q:q, snr:SNR, dur:dur, sig:fused, agree:agree, valid:valid,
              faceFrac:faceFrac, motion:motBad, lumaSwing:lumaSwing, split:split,
-             regions:chans.map(function(c){return c?{snr:c.snr,bpm:c.fq*60}:null;})};
+             regions:regionsOut.map(function(c){return c?{snr:c.snr,bpm:c.bpm,n:c.n}:null;}), patches:live.length, used:keep.length, snrCV:snrCV, fA:fA, fB:fB, pbv:pbv, qp:{base:+clamp((snrCV+3.5)/8,0,1).toFixed(2), split:+qSplit.toFixed(2), agree:+(q/(qBeforeAgree||1)).toFixed(2)}};
 
     /* ---------- HRV ---------- */
     var bt=(q>=0.35)?beats(fused,bpm,FS):null;
@@ -808,6 +993,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   if(typeof module!=='undefined'&&module.exports) module.exports=api; else root.CCEngine=api;
 })(this);
 
+var ENGINE_SRC="/* =====================================================================\n   \uad6c\uc131\uc6d0 \ucee8\ub514\uc158 \uccb4\ud06c \u2014 signal engine\n   Pure DSP, no DOM. Shared by the page and the offline test harness.\n   ===================================================================== */\n(function(root){\n  \"use strict\";\n  var FS = 30;                       // analysis sample rate (Hz)\n\n  function mean(x,a,b){ a=a||0; b=(b==null)?x.length:b; var s=0; for(var i=a;i<b;i++) s+=x[i]; return s/Math.max(1,b-a); }\n  function sd(x){ var m=mean(x),s=0; for(var i=0;i<x.length;i++) s+=(x[i]-m)*(x[i]-m); return Math.sqrt(s/Math.max(1,x.length)); }\n  function median(a){ if(!a.length) return NaN; var s=Array.prototype.slice.call(a).sort(function(p,q){return p-q;}); var h=s.length>>1; return s.length%2?s[h]:(s[h-1]+s[h])/2; }\n  function clamp(v,a,b){ return v<a?a:(v>b?b:v); }\n\n  /* ---------- uniform resampling of irregular camera timestamps ---------- */\n  function resample(ts, ys, t0, t1, fs){\n    var N=Math.floor((t1-t0)*fs); if(N<2) return null;\n    var out=new Float64Array(N), j=0;\n    for(var i=0;i<N;i++){\n      var t=t0+i/fs;\n      while(j<ts.length-2 && ts[j+1]<t) j++;\n      var ta=ts[j], tb=ts[j+1], u=(tb>ta)?(t-ta)/(tb-ta):0;\n      out[i]=ys[j]+(ys[j+1]-ys[j])*clamp(u,0,1);\n    }\n    return out;\n  }\n\n  /* ---------- POS (Wang, den Brinker, Stuijk, de Haan 2017) with overlap-add ----------\n     Temporal normalisation inside short windows is what makes POS robust to slow\n     illumination change \u2014 a single global normalisation throws that away. */\n  function pos(R,G,B,N,win){\n    var l=win||Math.round(1.6*FS), H=new Float64Array(N);\n    var s1=new Float64Array(l), s2=new Float64Array(l);\n    for(var n=l-1;n<N;n++){\n      var m=n-l+1, mr=0,mg=0,mb=0,k;\n      for(k=m;k<=n;k++){ mr+=R[k]; mg+=G[k]; mb+=B[k]; }\n      mr/=l; mg/=l; mb/=l;\n      if(mr<=0||mg<=0||mb<=0) continue;\n      var a1=0,a2=0;\n      for(k=0;k<l;k++){\n        var rn=R[m+k]/mr, gn=G[m+k]/mg, bn=B[m+k]/mb;\n        s1[k]=gn-bn; s2[k]=gn+bn-2*rn; a1+=s1[k]; a2+=s2[k];\n      }\n      a1/=l; a2/=l;\n      var v1=0,v2=0;\n      for(k=0;k<l;k++){ v1+=(s1[k]-a1)*(s1[k]-a1); v2+=(s2[k]-a2)*(s2[k]-a2); }\n      var al=v2>1e-12?Math.sqrt(v1/v2):0, hm=0;\n      for(k=0;k<l;k++) hm+=s1[k]+al*s2[k];\n      hm/=l;\n      for(k=0;k<l;k++) H[m+k]+=s1[k]+al*s2[k]-hm;\n    }\n    return H;\n  }\n\n  /* ---------- Butterworth biquads (RBJ) + zero-phase filtering ---------- */\n  function biquad(type,fc,fs){\n    var w=2*Math.PI*fc/fs, c=Math.cos(w), s=Math.sin(w), q=Math.SQRT1_2, al=s/(2*q), a0=1+al;\n    if(type==='lp') return {b0:(1-c)/2/a0,b1:(1-c)/a0,b2:(1-c)/2/a0,a1:-2*c/a0,a2:(1-al)/a0};\n    return {b0:(1+c)/2/a0,b1:-(1+c)/a0,b2:(1+c)/2/a0,a1:-2*c/a0,a2:(1-al)/a0};\n  }\n  function runBq(x,f){\n    var y=new Float64Array(x.length), x1=x[0],x2=x[0],y1=x[0]*0,y2=0;\n    /* start at steady state for the first value to avoid a start-up kick */\n    var dc=(f.b0+f.b1+f.b2)/(1+f.a1+f.a2); y1=y2=x[0]*dc;\n    for(var i=0;i<x.length;i++){\n      var v=f.b0*x[i]+f.b1*x1+f.b2*x2-f.a1*y1-f.a2*y2;\n      x2=x1; x1=x[i]; y2=y1; y1=v; y[i]=v;\n    }\n    return y;\n  }\n  function filtfilt(x,stages){\n    var N=x.length, pad=Math.min(N-1,Math.round(1.5*FS)), L=N+2*pad, z=new Float64Array(L), i;\n    for(i=0;i<pad;i++){ z[i]=2*x[0]-x[pad-i]; z[L-1-i]=2*x[N-1]-x[N-2-(pad-1-i)]; }\n    for(i=0;i<N;i++) z[pad+i]=x[i];\n    var y=z;\n    for(var s=0;s<stages.length;s++) y=runBq(y,stages[s]);\n    y=y.reverse ? Float64Array.from(y).reverse() : y;\n    for(s=0;s<stages.length;s++) y=runBq(y,stages[s]);\n    y=Float64Array.from(y).reverse();\n    return y.subarray(pad,pad+N);\n  }\n  function bandpass(x,lo,hi,fs){\n    fs=fs||FS;\n    return filtfilt(x,[biquad('hp',lo,fs),biquad('lp',hi,fs)]);\n  }\n  function lowpass(x,hi,fs){ return filtfilt(x,[biquad('lp',hi,fs||FS)]); }\n\n  /* ---------- Welch PSD evaluated on a fine frequency grid ---------- */\n  function welch(x,fs,f0,f1,step,segSec){\n    var N=x.length, L=Math.min(N,Math.max(16,Math.round(segSec*fs))), hop=Math.max(1,Math.floor(L/2));\n    var nf=Math.floor((f1-f0)/step)+1, P=new Float64Array(nf), w=new Float64Array(L), k, i, s, nseg=0;\n    for(k=0;k<L;k++) w[k]=0.5-0.5*Math.cos(2*Math.PI*k/(L-1));\n    var seg=new Float64Array(L);\n    for(s=0;s+L<=N;s+=hop){\n      nseg++;\n      var mu=mean(x,s,s+L);\n      for(k=0;k<L;k++) seg[k]=(x[s+k]-mu)*w[k];\n      for(i=0;i<nf;i++){\n        var om=2*Math.PI*(f0+i*step)/fs, c=Math.cos(om), sn=Math.sin(om), pr=1, pi=0, re=0, im=0;\n        for(k=0;k<L;k++){ re+=seg[k]*pr; im+=seg[k]*pi; var t=pr*c-pi*sn; pi=pr*sn+pi*c; pr=t; }\n        P[i]+=re*re+im*im;\n      }\n    }\n    if(nseg) for(i=0;i<nf;i++) P[i]/=nseg;\n    return {P:P, f0:f0, step:step, n:nf};\n  }\n  function argmax(P,a,b){ a=a||0; b=(b==null)?P.length:b; var bi=a,bv=-Infinity; for(var i=a;i<b;i++) if(P[i]>bv){bv=P[i];bi=i;} return bi; }\n  function peakFreq(ps,i){\n    /* parabolic interpolation between grid points */\n    var P=ps.P, d=0;\n    if(i>0&&i<ps.n-1){ var den=P[i-1]-2*P[i]+P[i+1]; if(den<0) d=clamp(0.5*(P[i-1]-P[i+1])/den,-0.5,0.5); }\n    return ps.f0+(i+d)*ps.step;\n  }\n\n  /* ---------- least-squares removal of motion regressors ---------- */\n  function regressOut(y,X){\n    var m=X.length, A=[], bb=[], i, j, n=y.length;\n    for(i=0;i<m;i++){ A.push(new Float64Array(m)); var s2=0; for(var t=0;t<n;t++) s2+=X[i][t]*y[t]; bb.push(s2);\n      for(j=0;j<m;j++){ var s3=0; for(t=0;t<n;t++) s3+=X[i][t]*X[j][t]; A[i][j]=s3; } }\n    for(i=0;i<m;i++) A[i][i]+=1e-9+A[i][i]*1e-3;\n    /* Gaussian elimination (m=3) */\n    var M=A.map(function(r,ix){ return Array.prototype.slice.call(r).concat([bb[ix]]); });\n    for(i=0;i<m;i++){\n      var p=i; for(j=i+1;j<m;j++) if(Math.abs(M[j][i])>Math.abs(M[p][i])) p=j;\n      var tmp=M[i]; M[i]=M[p]; M[p]=tmp; if(Math.abs(M[i][i])<1e-15) return y;\n      for(j=i+1;j<m;j++){ var fct=M[j][i]/M[i][i]; for(var c=i;c<=m;c++) M[j][c]-=fct*M[i][c]; }\n    }\n    var beta=new Float64Array(m);\n    for(i=m-1;i>=0;i--){ var v=M[i][m]; for(j=i+1;j<m;j++) v-=M[i][j]*beta[j]; beta[i]=v/M[i][i]; }\n    var out=new Float64Array(n);\n    for(var t2=0;t2<n;t2++){ var e=y[t2]; for(i=0;i<m;i++) e-=beta[i]*X[i][t2]; out[t2]=e; }\n    return out;\n  }\n  /* ---------- clamp motion spikes to a robust spread ---------- */\n  function winsor(x,k){\n    var a=[], i; for(i=0;i<x.length;i++) a.push(Math.abs(x[i]));\n    var lim=k*1.4826*median(a); if(!(lim>0)) return x;\n    for(i=0;i<x.length;i++){ if(x[i]>lim) x[i]=lim; else if(x[i]<-lim) x[i]=-lim; }\n    return x;\n  }\n\n  /* ---------- harmonic-aware peak ----------\n     A real pulse wave (sharp upstroke, dicrotic notch) puts a lot of power in its 2nd and 3rd\n     harmonics; at a slow heart rate the 3rd can outshine the fundamental in a noisy window.\n     Scoring each candidate with its own 2nd harmonic makes the fundamental win. */\n  function Pat(ps,f){ var x=(f-ps.f0)/ps.step, i=Math.floor(x); if(i<0||i>=ps.n-1) return 0; var u=x-i; return ps.P[i]*(1-u)+ps.P[i+1]*u; }\n  function hpeak(ps){\n    var best=-1, bi=0, fmax=ps.f0+(ps.n-1)*ps.step;\n    for(var i=0;i<ps.n;i++){\n      var f=ps.f0+i*ps.step; if(f<0.7||f>3.3) continue;\n      var sc=ps.P[i]+(2*f<=fmax?0.6*Pat(ps,2*f):0);\n      if(sc>best){ best=sc; bi=i; }\n    }\n    /* settle on the local spectral maximum near the winner */\n    var lo=Math.max(0,bi-3), hi=Math.min(ps.n,bi+4), j=argmax(ps.P,lo,hi);\n    return peakFreq(ps,j);\n  }\n\n  /* ---------- SNR as in de Haan & Jeanne 2013 (fundamental + harmonics vs the rest) ---------- */\n  function snrAt(ps,f){\n    var sig=0,noi=0;\n    for(var i=0;i<ps.n;i++){\n      var fi=ps.f0+i*ps.step;\n      if(Math.abs(fi-f)<=0.1||Math.abs(fi-2*f)<=0.2||Math.abs(fi-3*f)<=0.25) sig+=ps.P[i]; else noi+=ps.P[i];\n    }\n    return 10*Math.log10((sig+1e-20)/(noi+1e-20));\n  }\n\n  /* ---------- cubic (Catmull-Rom) upsampling for sub-frame beat timing ---------- */\n  function upsample(x,f){\n    var N=x.length, M=(N-1)*f+1, y=new Float64Array(M);\n    for(var j=0;j<M;j++){\n      var p=j/f, i=Math.floor(p), u=p-i;\n      var p0=x[Math.max(0,i-1)], p1=x[i], p2=x[Math.min(N-1,i+1)], p3=x[Math.min(N-1,i+2)];\n      y[j]=0.5*((2*p1)+(-p0+p2)*u+(2*p0-5*p1+4*p2-p3)*u*u+(-p0+3*p1-3*p2+p3)*u*u*u);\n    }\n    return y;\n  }\n\n  /* ---------- beat detection + artefact-corrected HRV ----------\n     Rough peaks are refined by cross-correlating each beat with the average beat shape.\n     That uses the whole waveform instead of one noisy sample, which is what keeps\n     RMSSD from being inflated by timing jitter. */\n  function beats(sig,bpm,fs){\n    var UP=4, fb=bpm/60;\n    /* narrow the band around the actual heart rate before timing beats */\n    var nb=bandpass(sig,Math.max(0.55,fb*0.55),Math.min(4.2,fb*2.6),fs);\n    var x=upsample(nb,UP), fsu=fs*UP, T=fsu*60/bpm, half=Math.max(3,Math.round(T*0.42));\n    var N=x.length, pk=[], i, k;\n    for(i=1;i<N-1;i++){\n      if(x[i]<=0||x[i]<x[i-1]||x[i]<x[i+1]) continue;\n      var ok=true;\n      for(k=Math.max(0,i-half);k<=Math.min(N-1,i+half);k++) if(x[k]>x[i]){ok=false;break;}\n      if(!ok) continue;\n      if(pk.length && i-pk[pk.length-1] < T*0.55) continue;\n      pk.push(i);\n    }\n    if(pk.length<4) return null;\n\n    /* average beat template */\n    var hw=Math.round(T*0.45), tl=2*hw+1, tmpl=new Float64Array(tl), cnt=0;\n    for(i=0;i<pk.length;i++){\n      var c=pk[i]; if(c-hw<0||c+hw>=N) continue;\n      for(k=-hw;k<=hw;k++) tmpl[k+hw]+=x[c+k];\n      cnt++;\n    }\n    if(cnt<3) return null;\n    var tm=mean(tmpl), tn=0;\n    for(k=0;k<tl;k++){ tmpl[k]-=tm; tn+=tmpl[k]*tmpl[k]; }\n    tn=Math.sqrt(tn)||1;\n    var sr=Math.max(2,Math.round(T*0.18)), ref=[], amp=[], corrs=[];\n    for(i=0;i<pk.length;i++){\n      var c0=pk[i], bl=-1, bs=-Infinity, sc=[];\n      for(var lag=-sr;lag<=sr;lag++){\n        var cc=c0+lag;\n        if(cc-hw<0||cc+hw>=N){ sc.push(-Infinity); continue; }\n        var dot=0, sm=0, ss=0;\n        for(k=-hw;k<=hw;k++){ sm+=x[cc+k]; }\n        sm/=tl;\n        for(k=-hw;k<=hw;k++){ var v=x[cc+k]-sm; dot+=v*tmpl[k+hw]; ss+=v*v; }\n        var r=dot/(tn*(Math.sqrt(ss)||1));\n        sc.push(r);\n        if(r>bs){ bs=r; bl=lag; }\n      }\n      if(bs===-Infinity) continue;\n      var j=bl+sr, off=0;\n      if(j>0&&j<sc.length-1&&isFinite(sc[j-1])&&isFinite(sc[j+1])){\n        var den=sc[j-1]-2*sc[j]+sc[j+1]; if(den<0) off=clamp(0.5*(sc[j-1]-sc[j+1])/den,-0.5,0.5);\n      }\n      ref.push(c0+bl+off); amp.push(x[c0+bl]); corrs.push(bs);\n    }\n    if(ref.length<4) return null;\n\n    var tb=[], ib=[], i2;\n    for(i2=0;i2<ref.length;i2++) tb.push(ref[i2]/fsu);\n    for(i2=1;i2<ref.length;i2++) ib.push((tb[i2]-tb[i2-1])*1000);\n    /* reject impossible intervals, poorly shaped beats, and anything >20% off the local median (Malik) */\n    var ok2=[], gm=median(ib);\n    for(i2=0;i2<ib.length;i2++){\n      var lo=Math.max(0,i2-3), hi=Math.min(ib.length,i2+4), loc=median(ib.slice(lo,hi));\n      ok2.push(ib[i2]>=300 && ib[i2]<=1600 && Math.abs(ib[i2]-loc)<=0.20*loc &&\n               Math.abs(ib[i2]-gm)<=0.35*gm && corrs[i2]>=0.5 && corrs[i2+1]>=0.5);\n    }\n    var sq=0,nsq=0,nn50=0,clean=[];\n    for(i2=0;i2<ib.length;i2++) if(ok2[i2]) clean.push(ib[i2]);\n    for(i2=1;i2<ib.length;i2++) if(ok2[i2]&&ok2[i2-1]){ var d=ib[i2]-ib[i2-1]; sq+=d*d; nsq++; if(Math.abs(d)>50) nn50++; }\n    var med=median(ib), outl=0, big=0;\n    for(i2=0;i2<ib.length;i2++) if(Math.abs(ib[i2]-med)/med>0.20) outl++;\n    for(i2=1;i2<ib.length;i2++) if(Math.abs(ib[i2]-ib[i2-1])>50) big++;\n    return {\n      times:tb, ibi:ib, ok:ok2, clean:clean, amp:amp, corr:median(corrs),\n      acceptRatio: clean.length/Math.max(1,ib.length),\n      rmssd: nsq>=6?Math.sqrt(sq/nsq):null,\n      sdnn: clean.length>=6?sd(clean):null,\n      pnn50: nsq?nn50/nsq:null,\n      nPairs:nsq,\n      outRatio: outl/Math.max(1,ib.length),\n      rawPnn50: ib.length>1?big/(ib.length-1):0\n    };\n  }\n\n  /* ---------- breathing ----------\n     A 10\u201315 s window only holds 2\u20135 breaths, far too few for a sharp spectral peak.\n     Autocorrelation finds the repeat period directly, so each surrogate gets its own\n     period estimate and a quality score; agreeing surrogates are then fused. */\n  function respOne(x,fsR){\n    var N=x.length; if(N<fsR*7) return null;\n    var y=bandpass(x,0.12,0.6,fsR), m=mean(y), v=0, i, k;\n    for(i=0;i<N;i++){ y[i]-=m; v+=y[i]*y[i]; }\n    if(v<=0) return null;\n    var lmin=Math.floor(fsR/0.55), lmax=Math.min(N-fsR*2,Math.ceil(fsR/0.14)), ac=[];\n    for(k=0;k<=lmax+1;k++){ var s=0; for(i=0;i+k<N;i++) s+=y[i]*y[i+k]; ac.push(s/v*(N/(N-k))); }\n    /* take the FIRST strong repeat, not the tallest \u2014 the tallest is often two breaths long */\n    var peaks=[], k2, top=-Infinity;\n    for(k2=Math.max(1,lmin);k2<=lmax;k2++) if(ac[k2]>ac[k2-1]&&ac[k2]>=ac[k2+1]&&ac[k2]>0){ peaks.push(k2); if(ac[k2]>top) top=ac[k2]; }\n    if(!peaks.length) return null;\n    var bk=peaks[0];\n    for(k2=0;k2<peaks.length;k2++) if(ac[peaks[k2]]>=0.7*top){ bk=peaks[k2]; break; }\n    var bv=ac[bk];\n    var den=ac[bk-1]-2*ac[bk]+ac[bk+1], off=den<0?clamp(0.5*(ac[bk-1]-ac[bk+1])/den,-0.5,0.5):0;\n    var per=(bk+off)/fsR;\n    /* the trough at half a period should be clearly negative for a genuine rhythm */\n    var hk=Math.round((bk+off)/2), trough=ac[hk]||0;\n    var qual=clamp((bv-trough)/2,0,1);\n    return {f:1/per, q:qual};\n  }\n  function respFuse(cands){\n    var ests=[], i;\n    for(i=0;i<cands.length;i++){\n      var c=cands[i]; if(!c||!c.x) continue;\n      var r=respOne(c.x,4); if(!r||r.q<0.25) continue;\n      if(r.f<0.14||r.f>0.55) continue;\n      ests.push({f:r.f, w:r.q*(c.w||1), q:r.q});\n    }\n    if(!ests.length) return null;\n    /* score each estimate by how much weight agrees with it (within 2.5 breaths/min) */\n    var best=null;\n    for(i=0;i<ests.length;i++){\n      var sw=0, sf=0, n=0;\n      for(var j=0;j<ests.length;j++) if(Math.abs(ests[j].f-ests[i].f)*60<=2.5){ sw+=ests[j].w; sf+=ests[j].f*ests[j].w; n++; }\n      if(!best||sw>best.sw) best={sw:sw, f:sf/sw, n:n};\n    }\n    var conf = best.n>=2 ? clamp(best.sw/1.2,0,1) : clamp((best.sw-0.35)/0.6,0,1);\n    return {rpm:best.f*60, conf:conf, n:best.n};\n  }\n  function toGrid(times,vals,t0,t1,fs){\n    if(!times||times.length<4) return null;\n    var N=Math.floor((t1-t0)*fs), y=new Float64Array(N), j=0;\n    for(var i=0;i<N;i++){\n      var t=t0+i/fs;\n      while(j<times.length-2&&times[j+1]<t) j++;\n      var u=(times[j+1]>times[j])?(t-times[j])/(times[j+1]-times[j]):0;\n      y[i]=vals[j]+(vals[j+1]-vals[j])*clamp(u,0,1);\n    }\n    return y;\n  }\n\n  /* =====================================================================\n     analyze(samples, opts)\n       samples: [{t, rois:[[r,g,b,n],...], face, mot, noseY, luma}]\n       opts:    {mode:'face'|'finger', t0, t1}\n     ===================================================================== */\n  function analyze(samples,opts){\n    var mode=opts.mode, t0=opts.t0, t1=opts.t1, S=[], i, k;\n    for(i=0;i<samples.length;i++) if(samples[i].t>=t0-0.2&&samples[i].t<=t1+0.2) S.push(samples[i]);\n    if(S.length<FS*4) return {ok:false, why:'short'};\n    t0=Math.max(t0,S[0].t); t1=Math.min(t1,S[S.length-1].t);\n    var dur=t1-t0; if(dur<4) return {ok:false, why:'short'};\n    var ts=S.map(function(s){return s.t;});\n\n    /* coverage / motion / lighting over the window */\n    var faceFrac=0, motBad=0, lum=[];\n    for(i=0;i<S.length;i++){\n      if(S[i].face) faceFrac++;\n      if(S[i].mot>0.012) motBad++;\n      if(S[i].luma>0) lum.push(S[i].luma);\n    }\n    faceFrac/=S.length; motBad/=S.length;\n    /* lighting change: smoothed, percentile range \u2014 a jittery region edge must not look like a lamp switching */\n    var lumaSwing=0;\n    if(lum.length>FS){\n      var ls=[], acc=0, wN=15;\n      for(i=0;i<lum.length;i++){ acc+=lum[i]; if(i>=wN) acc-=lum[i-wN]; if(i>=wN-1) ls.push(acc/wN); }\n      ls.sort(function(a,b){return a-b;});\n      var p5=ls[Math.floor(ls.length*0.05)], p95=ls[Math.floor(ls.length*0.95)];\n      lumaSwing=(p95-p5)/Math.max(1,p95);\n    }\n    if(mode==='face' && faceFrac<0.6) return {ok:false, why:'noface'};\n\n    /* the tracker can fall back to a coarser region set mid-window; use the dominant layout only */\n    var cntLen={}, nR=0, bestCnt=-1;\n    for(i=0;i<S.length;i++){ var ln=S[i].rois?S[i].rois.length:0; cntLen[ln]=(cntLen[ln]||0)+1; }\n    for(var key in cntLen) if(+key>0 && cntLen[key]>bestCnt){ bestCnt=cntLen[key]; nR=+key; }\n    if(!nR) return {ok:false, why:'weak'};\n    var groups=(opts.groups && opts.groups.length===nR) ? opts.groups : null;\n\n    /* head-pose regressors: whatever of the pulse band is explained by the face moving is not pulse */\n    var MR=null;\n    if(mode==='face'){\n      var mt=[], mx=[], my=[], mw=[];\n      for(i=0;i<S.length;i++) if(S[i].fx!=null){ mt.push(S[i].t); mx.push(S[i].fx); my.push(S[i].fy); mw.push(S[i].fw); }\n      if(mt.length>=S.length*0.8 && mt.length>FS*4){\n        MR=[mx,my,mw].map(function(v){ var z=resample(mt,v,t0,t1,FS); return z?bandpass(z,0.65,3.5):null; });\n        if(!MR[0]||!MR[1]||!MR[2]) MR=null;\n      }\n    }\n\n    var chans=[], best=null;\n    for(k=0;k<nR;k++){\n      var r=[],g=[],b=[],tt=[];\n      for(i=0;i<S.length;i++){\n        var q=S[i].rois&&S[i].rois.length===nR?S[i].rois[k]:null;\n        if(q && q[3]>=(groups?4:20)){ tt.push(S[i].t); r.push(q[0]); g.push(q[1]); b.push(q[2]); }\n      }\n      if(tt.length<Math.max(FS*4,(t1-t0)*FS*0.6)){ chans.push(null); continue; }\n      var R=resample(tt,r,t0,t1,FS), G=resample(tt,g,t0,t1,FS), B=resample(tt,b,t0,t1,FS);\n      if(!R) { chans.push(null); continue; }\n      var raw;\n      if(mode==='finger'){\n        /* fingertip under a torch: more blood absorbs more light, so invert the brightest usable channel */\n        var src = mean(R)>246 ? G : R;\n        raw=new Float64Array(src.length); var mu=mean(src);\n        for(i=0;i<src.length;i++) raw[i]=-(src[i]-mu)/Math.max(1,mu);\n      } else {\n        /* POS comes out with the systolic edge pointing down; flip it so beats are maxima */\n        raw=pos(R,G,B,R.length,opts.xPosWin?Math.round(opts.xPosWin*FS):0);\n        for(i=0;i<raw.length;i++) raw[i]=-raw[i];\n      }\n      var f=bandpass(raw,0.65,3.5);\n      if(MR && MR[0].length===f.length) f=regressOut(f,MR);\n      winsor(f,3.5);\n      var ps=welch(f,FS,0.65,3.5,groups?0.02:0.01,Math.min(dur,8));\n      var tot=0; for(i=0;i<ps.n;i++) tot+=ps.P[i];\n      var ch={f:f, raw:raw, G:G, R:R, Bc:B, ps:ps, tot:tot||1, sdG:sd(G), sdf:sd(f)||1, g:groups?groups[k]:k, idx:k};\n      chans.push(ch);\n    }\n    if(opts.xGroupPos!==0 && groups && mode==='face'){\n      /* also pool each region's colour before POS: a steadier colour estimate for the projection */\n      var nG0=Math.max.apply(null,groups)+1;\n      for(var g0=0;g0<nG0;g0++){\n        var tt3=[],r3=[],g3=[],b3=[];\n        for(i=0;i<S.length;i++){ var ro=S[i].rois; if(!ro||ro.length!==nR) continue; var sr=0,sg=0,sb=0,sw=0;\n          for(k=0;k<nR;k++) if(groups[k]===g0&&ro[k][3]>=4){ sr+=ro[k][0]*ro[k][3]; sg+=ro[k][1]*ro[k][3]; sb+=ro[k][2]*ro[k][3]; sw+=ro[k][3]; }\n          if(sw>0){ tt3.push(S[i].t); r3.push(sr/sw); g3.push(sg/sw); b3.push(sb/sw); } }\n        if(tt3.length<FS*4) continue;\n        var R3=resample(tt3,r3,t0,t1,FS),G3=resample(tt3,g3,t0,t1,FS),B3=resample(tt3,b3,t0,t1,FS);\n        var raw3=pos(R3,G3,B3,R3.length); for(i=0;i<raw3.length;i++) raw3[i]=-raw3[i];\n        var f3=bandpass(raw3,0.65,3.5); if(MR&&MR[0].length===f3.length) f3=regressOut(f3,MR); winsor(f3,3.5);\n        var ps3=welch(f3,FS,0.65,3.5,0.02,Math.min(dur,8)), tot3=0; for(i=0;i<ps3.n;i++) tot3+=ps3.P[i];\n        chans.push({f:f3,raw:raw3,G:G3,R:R3,Bc:B3,ps:ps3,tot:tot3||1,sdG:sd(G3),sdf:sd(f3)||1,g:g0,idx:nR+g0});\n      }\n    }\n    var live=chans.filter(function(c){return !!c;});\n    if(!live.length) return {ok:false, why:'weak'};\n\n    /* spectral voting: noise peaks land at random frequencies patch by patch, the pulse lands\n       at the same one everywhere \u2014 so the normalised spectra are summed before picking a peak */\n    function vote(list,wf){\n      var ps0=list[0].ps, C=new Float64Array(ps0.n);\n      for(var a=0;a<list.length;a++){ var w=wf(list[a]); if(!(w>0)) continue; for(var j=0;j<ps0.n;j++) C[j]+=w*list[a].ps.P[j]/list[a].tot; }\n      return {P:C, f0:ps0.f0, step:ps0.step, n:ps0.n};\n    }\n    var V1=vote(live,function(){return 1;}), f1=hpeak(V1);\n    for(k=0;k<live.length;k++){\n      live[k].snr=snrAt(live[k].ps,f1);\n      live[k].fq=peakFreq(live[k].ps,argmax(live[k].ps.P));\n      /* maximal-ratio weighting (linear SNR), capped so one patch cannot own the result */\n      live[k].w=Math.min(8,Math.pow(10,live[k].snr/10));\n    }\n    var V2=vote(live,function(c){return c.w;}), f2=hpeak(V2);\n    for(k=0;k<live.length;k++){ live[k].snr=snrAt(live[k].ps,f2); live[k].w=Math.min(8,Math.pow(10,live[k].snr/10)); }\n    live.sort(function(a,b){return b.w-a.w;});\n    best=live[0];\n    /* keep the stronger half (at least 3) so dead patches don't dilute the waveform */\n    var keep=opts.xKeepAll?live.slice():live.filter(function(c,ix){ return ix<Math.max(3,Math.ceil(live.length/(opts.xKeepDiv||2))) && c.snr>best.snr-8; });\n\n    var N=best.f.length, fused=new Float64Array(N), wsum=0;\n    for(k=0;k<keep.length;k++){\n      var c=keep[k]; if(c.f.length!==N) continue;\n      for(i=0;i<N;i++) fused[i]+=c.w*c.f[i]/c.sdf;\n      wsum+=c.w;\n    }\n    if(wsum>0) for(i=0;i<N;i++) fused[i]/=wsum;\n\n    /* region summary (forehead / cheek / cheek) for display and the agreement test */\n    var gIds=[]; for(k=0;k<chans.length;k++) if(chans[k] && gIds.indexOf(chans[k].g)<0) gIds.push(chans[k].g);\n    var nG=groups?Math.max.apply(null,groups)+1:nR, regionsOut=[];\n    for(var gi=0;gi<nG;gi++){\n      var mem=live.filter(function(c){return c.g===gi;});\n      if(!mem.length){ regionsOut.push(null); continue; }\n      var Vg=vote(mem,function(c){return Math.max(0.05,c.w);}), fg=hpeak(Vg);\n      var sg=-Infinity; for(k=0;k<mem.length;k++) sg=Math.max(sg,snrAt(mem[k].ps,fg));\n      regionsOut.push({snr:sg, bpm:fg*60, fq:fg, n:mem.length});\n    }\n    var PS=welch(fused,FS,0.65,3.5,0.01,Math.min(dur,8));\n    var fHR=hpeak(PS), bi=Math.round((fHR-PS.f0)/PS.step);\n    /* guard against locking onto the second harmonic */\n    var hb=Math.round((fHR/2-PS.f0)/PS.step);\n    if(fHR/2>=0.75 && hb>=0 && hb<PS.n){\n      var hp=PS.P[argmax(PS.P,Math.max(0,hb-3),Math.min(PS.n,hb+4))];\n      if(hp>=0.7*PS.P[bi]) { var j2=argmax(PS.P,Math.max(0,hb-3),Math.min(PS.n,hb+4)); fHR=peakFreq(PS,j2); }\n    }\n    var SNR=snrAt(PS,fHR), bpm=fHR*60;\n\n    /* ---------- cross-validated SNR ----------\n       Picking the loudest patches and then measuring how loud they are is circular: pure noise\n       would pass. So the patches are split into two interleaved teams; each team picks its own\n       frequency and weights, and is scored at the frequency the OTHER team found. */\n    var snrCV=SNR, fA=null, fB=null;\n    if(groups && live.length>=6){\n      var team=function(par){\n        var mem=live.filter(function(c){ return c.idx%2===par; });\n        if(mem.length<3) return null;\n        var V=vote(mem,function(c){return 1;}), ff=hpeak(V);\n        var ws=mem.map(function(c){ return Math.min(8,Math.pow(10,snrAt(c.ps,ff)/10)); });\n        var Vw=vote(mem,function(c){ return ws[mem.indexOf(c)]; }); ff=hpeak(Vw);\n        var ord=mem.map(function(c,ix){return ix;}).sort(function(x,y){return ws[y]-ws[x];}).slice(0,Math.max(3,Math.ceil(mem.length/2)));\n        var fu=new Float64Array(N), ww=0;\n        ord.forEach(function(ix){ var c=mem[ix]; if(c.f.length!==N) return; for(var t=0;t<N;t++) fu[t]+=ws[ix]*c.f[t]/c.sdf; ww+=ws[ix]; });\n        return {f:ff, ps:welch(fu,FS,0.65,3.5,0.02,Math.min(dur,8))};\n      };\n      var TA=team(0), TB=team(1);\n      if(TA&&TB){\n        fA=TA.f*60; fB=TB.f*60;\n        snrCV=Math.min(SNR,(snrAt(TA.ps,TB.f)+snrAt(TB.ps,TA.f))/2);\n      }\n    }\n\n    /* ---------- colour signature (PBV, de Haan & van Leest 2014) ----------\n       Blood absorbs green far more than red or blue, so a real pulse brightens and darkens the\n       green channel most, all three in step. A lamp, a white-balance hunt or a shadow does not. */\n    var pbv=null;\n    if(mode==='face'){\n      var nr=new Float64Array(N), ng=new Float64Array(N), nb=new Float64Array(N), wz=0;\n      for(k=0;k<keep.length;k++){\n        var c2=keep[k]; if(c2.R.length!==N) continue;\n        var m1=mean(c2.R), m2=mean(c2.G), m3=mean(c2.Bc);\n        if(!(m1>0&&m2>0&&m3>0)) continue;\n        for(i=0;i<N;i++){ nr[i]+=c2.w*c2.R[i]/m1; ng[i]+=c2.w*c2.G[i]/m2; nb[i]+=c2.w*c2.Bc[i]/m3; }\n        wz+=c2.w;\n      }\n      if(wz>0){\n        var fr_=bandpass(nr,0.65,3.5), fg_=bandpass(ng,0.65,3.5), fb_=bandpass(nb,0.65,3.5);\n        var ff=0, br=0, bg=0, bbv=0;\n        for(i=0;i<N;i++){ ff+=fused[i]*fused[i]; br+=fr_[i]*fused[i]; bg+=fg_[i]*fused[i]; bbv+=fb_[i]*fused[i]; }\n        if(ff>0){ br/=ff; bg/=ff; bbv/=ff; }\n        /* POS output is sign-flipped so beats are maxima = less blood = brighter */\n        pbv={r:br/wz, g:bg/wz, b:bbv/wz};\n        pbv.ratio = Math.abs(pbv.g) / Math.max(Math.abs(pbv.r), Math.abs(pbv.b), 1e-12);\n      }\n    }\n\n    /* ---------- confidence ---------- */\n    /* without the cross-check (coarse tracker) the raw SNR is optimistic, so demand more of it */\n    var q=clamp((snrCV+(mode==='face'&&fA===null?2.5:3.5))/8,0,1);\n    if(pbv){\n      /* compare colour DIRECTION only (mean removed), so a brightness wobble that happens to\n         ride along with the pulse cannot fake or hide the signature */\n      var mu3=(pbv.r+pbv.g+pbv.b)/3, v=[pbv.r-mu3,pbv.g-mu3,pbv.b-mu3], P0=[-0.33,-0.77,-0.53], mp=(P0[0]+P0[1]+P0[2])/3;\n      var pc=[P0[0]-mp,P0[1]-mp,P0[2]-mp], dot=v[0]*pc[0]+v[1]*pc[1]+v[2]*pc[2];\n      var nv=Math.hypot(v[0],v[1],v[2]), np_=Math.hypot(pc[0],pc[1],pc[2]);\n      pbv.cos = nv>0 ? dot/(nv*np_) : 0;\n      pbv.ok = pbv.cos>=0.5;\n      if(pbv.cos<0) q*=0.45; else if(pbv.cos<0.5) q*=0.8;\n    }\n    if(fA!==null && Math.abs(fA-fB)>Math.max(6,60/dur*1.2)) q*=0.25;\n    if(mode==='face') q*=clamp((faceFrac-0.6)/0.35,0,1);\n    q*=1-clamp(motBad*1.6,0,0.85);\n    if(lumaSwing>0.35) q*=0.45; else if(lumaSwing>0.2) q*=0.75;\n    if(fHR<=0.68||fHR>=3.45) q*=0.2;\n    if(mode==='face'&&(bpm<45||bpm>160)) q*=0.5;\n    if(mode==='finger'&&best.sdG<0.05&&sd(best.R)<0.05) q*=0.2;\n    /* a real pulse gives the same answer in each half of the window */\n    var split=null, q0=q;\n    if(N>=FS*8){\n      var halfEst=function(a,b){\n        if(keep.length>=3){\n          /* each half judged by the same patch vote as the whole \u2014 far steadier than one fused trace */\n          var C=null, ps1;\n          for(var z=0;z<keep.length;z++){\n            ps1=welch(keep[z].f.subarray(a,b),FS,0.65,3.5,0.02,(b-a)/FS);\n            var tt2=0,j; for(j=0;j<ps1.n;j++) tt2+=ps1.P[j];\n            if(!C) C=new Float64Array(ps1.n);\n            for(j=0;j<ps1.n;j++) C[j]+=keep[z].w*ps1.P[j]/(tt2||1);\n          }\n          return hpeak({P:C,f0:ps1.f0,step:ps1.step,n:ps1.n})*60;\n        }\n        var hh=welch(fused.subarray(a,b),FS,0.65,3.5,0.02,(b-a)/FS); return hpeak(hh)*60;\n      };\n      var fa=halfEst(0,N>>1), fb=halfEst(N>>1,N);\n      /* a half that lands on the 2nd/3rd harmonic of the full-window rate still shows the same rhythm */\n      var dev=function(e){ var m=Infinity; for(var h=1;h<=3;h++) m=Math.min(m,Math.abs(e/h-bpm)); return m; };\n      split=Math.max(dev(fa),dev(fb));\n      /* a half-window can only resolve ~1/(its length) Hz, so the tolerance scales with it */\n      var tol=Math.max(7,60/(dur/2)*0.9);\n      if(split>tol*1.8) q*=0.2; else if(split>tol) q*=0.55;\n    }\n    var qSplit=q/(q0||1);\n\n    /* independent skin regions of one face must agree on the rate \u2014 noise does not */\n    var valid=0, agree=0;\n    for(k=0;k<regionsOut.length;k++){ if(!regionsOut[k]) continue; valid++; if(Math.abs(regionsOut[k].bpm-bpm)<=6) agree++; }\n    var qBeforeAgree=q;\n    if(mode==='face'&&valid>=3){ if(agree<2) q*=(SNR>=3?0.6:0.3); }\n    else if(mode==='face'&&valid===2){ if(agree<2) q*=0.5; }\n\n    var out={ok:true, mode:mode, bpm:bpm, q:q, snr:SNR, dur:dur, sig:fused, agree:agree, valid:valid,\n             faceFrac:faceFrac, motion:motBad, lumaSwing:lumaSwing, split:split,\n             regions:regionsOut.map(function(c){return c?{snr:c.snr,bpm:c.bpm,n:c.n}:null;}), patches:live.length, used:keep.length, snrCV:snrCV, fA:fA, fB:fB, pbv:pbv, qp:{base:+clamp((snrCV+3.5)/8,0,1).toFixed(2), split:+qSplit.toFixed(2), agree:+(q/(qBeforeAgree||1)).toFixed(2)}};\n\n    /* ---------- HRV ---------- */\n    var bt=(q>=0.35)?beats(fused,bpm,FS):null;\n    out.beats=bt;\n    /* ultra-short HRV (10\u201315 s, a dozen beats) is statistically meaningless \u2014 require ~25 s */\n    if(dur>=(opts.minHrvSec||25) && bt && bt.rmssd!==null && bt.acceptRatio>=0.7 && bt.nPairs>=8 && bt.corr>=0.7 && SNR>=1.5 && bt.rmssd<=160){\n      out.rmssd=bt.rmssd; out.sdnn=bt.sdnn; out.pnn50=bt.pnn50;\n      /* log-scaled so the index behaves sensibly across the normal RMSSD range */\n      var lr=Math.log(clamp(bt.rmssd,8,120));\n      out.stress=Math.round(clamp(100*(1-(lr-Math.log(10))/(Math.log(100)-Math.log(10))),3,97));\n    }\n    if(!out.rmssd) out.hrvWhy = dur<(opts.minHrvSec||25) ? 'short' : 'weak';\n    if(mode==='finger' && bt && dur>=25 && q>=0.55 && bt.ibi.length>=20 && bt.outRatio>=0.12 && bt.rawPnn50>=0.30)\n      out.irregular=true;\n\n    /* ---------- breathing ---------- */\n    if(dur>=9.5 && q>=0.35){\n      var fsR=4, cands=[];\n      if(bt && bt.clean.length>=6){\n        var bt_t=[], bt_i=[], bt_a=[];\n        for(i=1;i<bt.times.length;i++) if(bt.ok[i-1]){ bt_t.push(t0+bt.times[i]); bt_i.push(bt.ibi[i-1]); }\n        for(i=0;i<bt.times.length;i++){ bt_a.push(bt.amp[i]); }\n        cands.push({x:toGrid(bt_t,bt_i,t0+1,t1-1,fsR), w:1.2});                                     // RSA\n        cands.push({x:toGrid(bt.times.map(function(v){return t0+v;}),bt_a,t0+1,t1-1,fsR), w:0.9}); // amplitude\n      }\n      var bl=lowpass(mode==='finger'?best.R:best.G,0.6), blt=[];\n      for(i=0;i<bl.length;i++) blt.push(t0+i/FS);\n      cands.push({x:toGrid(blt,bl,t0+1,t1-1,fsR), w:0.8});                                           // baseline\n      if(mode==='face'){\n        var ny=[], nt=[];\n        for(i=0;i<S.length;i++) if(S[i].face&&S[i].noseY!=null){ nt.push(S[i].t); ny.push(S[i].noseY); }\n        if(nt.length>FS*8) cands.push({x:toGrid(nt,ny,t0+1,t1-1,fsR), w:0.7});                        // head bob\n      }\n      var rr=respFuse(cands);\n      if(rr&&rr.rpm&&rr.conf>=0.35){ out.rpm=rr.rpm; out.rpmConf=rr.conf; out.rpmN=rr.n; }\n      else out.rpmWhy='weak';\n    } else out.rpmWhy = dur<9.5 ? 'short' : 'weak';\n\n    return out;\n  }\n\n  var api={FS:FS, analyze:analyze, pos:pos, bandpass:bandpass, welch:welch, snrAt:snrAt, beats:beats, median:median};\n  if(typeof module!=='undefined'&&module.exports) module.exports=api; else root.CCEngine=api;\n})(this);\n";
 </script>
 <script>
 (function(){
@@ -829,6 +1015,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       engineTag=$('engineTag'), engineTxt=$('engineTxt'),
       logEl=$('log'), logEmpty=$('logEmpty'), logWrap=$('logWrap'),
       cardPanel=$('cardPanel'), cardImg=$('cardImg'), httpsWarn=$('httpsWarn'), diagWrap=$('diagWrap'), diagEl=$('diag');
+  $('btnDump').addEventListener('click',function(){ dumpData(); });
   var wctx2=waveCv.getContext('2d');
 
   /* ================= face landmark engine ================= */
@@ -841,7 +1028,17 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   ];
   var landmarker=null, engineState='loading', OVAL=null;
 
-  /* landmark sets from the MediaPipe canonical face mesh; each is filled as a convex hull */
+  /* measurement patches: small soft-edged disks pinned to interior skin landmarks.
+     They never touch the brows, eyes, nostrils or the face outline, so the landmark jitter of
+     a real phone camera cannot drag dark or background pixels in and out of the average. */
+  var PATCH_GROUPS=[
+    [151,9,108,337,69,299,67,297,10],                  // forehead
+    [50,101,118,117,123,187,205,207,36],               // cheek (image left)
+    [280,330,347,346,352,411,425,427,266]              // cheek (image right)
+  ];
+  var PATCH_IDX=[], PATCH_G=[];
+  PATCH_GROUPS.forEach(function(gr,gi){ gr.forEach(function(ix){ PATCH_IDX.push(ix); PATCH_G.push(gi); }); });
+  /* landmark sets from the MediaPipe canonical face mesh; each is filled as a convex hull (display) */
   var ROI_SETS=[
     [10,109,67,103,338,297,332,151,108,69,337,299,9,107,66,336,296,104,333],          // forehead
     [50,101,118,117,116,123,147,187,205,36,142,126,206,207,216,192,213],               // cheek (image left)
@@ -928,7 +1125,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   }
   function showEngine(){
     engineTag.className='engine '+(engineState==='pro'?'pro':engineState==='basic'?'basic':'');
-    engineTxt.textContent = engineState==='pro' ? '정밀 추적 · 얼굴 특징점 478개 · 이마·양 볼 3부위 융합'
+    engineTxt.textContent = engineState==='pro' ? '정밀 추적 · 얼굴 특징점 478개 · 이마·양 볼 27지점 교차검증'
       : engineState==='basic' ? '간이 추적 모드 — 정밀 엔진을 불러오지 못했습니다(네트워크 확인)'
       : '분석 엔진 준비 중…';
   }
@@ -946,7 +1143,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   var measuring=false, measureEnd=0, measureStartT=0, lastLive=0, lastBeat=0, lastWave=0, lastHint=0;
   var holdTiles=0;
   var trackMode='none', lastFail='', hasCapTime=false, lastDiag=0;
-  var roiYref=[0,0,0], roiStats={rgb:[0,0,0],clip:0,spec:0}, camTuning=false, camInfo='';
+  var aw=null, awBusy=false, awGen=0, awSince=0, extSecs=0, lastPatches=null, roiYref=[], roiStats={rgb:[0,0,0],clip:0,spec:0}, camTuning=false, camInfo='';
   var guideState={k:'', ok:false}, holdUntil=0, faceSince=0, noFaceAt=0;
   var SELF={sleep:null,drink:null,med:null,cond:null};
 
@@ -1019,6 +1216,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   window.addEventListener('resize',function(){ sizeOverlay(); drawWave(); });
 
   function start(){
+    if(!aw) initAnalysisWorker();
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
       setStatus('이 브라우저에서 카메라를 쓸 수 없습니다. https 주소인지 확인하세요.','crit');
       httpsWarn.hidden=false; return;
@@ -1141,7 +1339,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       camLocked='reverted'; restartSignal();
     }
   }
-  function restartSignal(){ samples.length=0; faceSince=0; bpmHist=[]; live=null; goodSince=0; quality=0; roiYref=[0,0,0]; }
+  function restartSignal(){ awGen++; samples.length=0; faceSince=0; bpmHist=[]; live=null; goodSince=0; quality=0; roiYref=[]; }
   function lockCamera(){ tuneAndLock(); }
   var camLockKeys='';
   function keepAwake(){
@@ -1153,8 +1351,9 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     el.className='val'; el.innerHTML=v+(unit?'<small>'+unit+'</small>':'');
   }
   function resetAll(){
+    awGen++; awBusy=false;
     euro=null; faceSince=0; noFaceAt=0; samples=[]; bpmHist=[]; live=null; quality=0; goodSince=0; lastLm=null; lastLmAt=0; lastHulls=null; prevNose=null; curFace=null; lastMot=0; workerBusy=false;
-    camLocked=false; camTuning=false; camInfo=''; clearTimeout(lockTimer); lockTimer=0; roiYref=[0,0,0];
+    camLocked=false; camTuning=false; camInfo=''; clearTimeout(lockTimer); lockTimer=0; roiYref=[];
     setVal(bpmEl,null); devEl.innerHTML='&nbsp;'; devEl.className='sub';
     setVal(qval,null); setVal(mRpm,null); setVal(mHrv,null); setVal(mStress,null);
     rpmWhy.innerHTML='&nbsp;'; hrvWhy.innerHTML='&nbsp;';
@@ -1260,6 +1459,52 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     return {rois:out, luma:rawN?rawY/rawN:0};
   }
 
+  /* Gaussian-weighted disks: moving the centre by a fraction of a pixel changes the
+     average smoothly instead of flipping whole pixel rows in or out. */
+  function samplePatches(L,W,H){
+    var fw=Math.hypot((L[454*2]-L[234*2])*W,(L[454*2+1]-L[234*2+1])*H);
+    if(!(fw>20)) return null;
+    var rad=Math.max(3,fw*0.066), sig=rad*0.62, inv=1/(2*sig*sig), np=PATCH_IDX.length, k;
+    var x0=W,y0=H,x1=0,y1=0, C=[];
+    for(k=0;k<np;k++){
+      var ix=PATCH_IDX[k], cx=L[2*ix]*W, cy=L[2*ix+1]*H;
+      /* upper forehead points sit near the hairline or a helmet brim: pull them toward the brow centre */
+      if(ix===10||ix===67||ix===297){ cx=cx*0.8+L[2*151]*W*0.2; cy=cy*0.72+L[2*151+1]*H*0.28; }
+      C.push([cx,cy]);
+      x0=Math.min(x0,cx-rad); y0=Math.min(y0,cy-rad); x1=Math.max(x1,cx+rad); y1=Math.max(y1,cy+rad);
+    }
+    x0=Math.max(0,Math.floor(x0)); y0=Math.max(0,Math.floor(y0)); x1=Math.min(W-1,Math.ceil(x1)); y1=Math.min(H-1,Math.ceil(y1));
+    if(x1<=x0||y1<=y0) return null;
+    var bw=x1-x0+1, d;
+    try{ d=wctx.getImageData(x0,y0,bw,y1-y0+1).data; }catch(e){ return null; }
+    var out=[], rawY=0, rawN=0, clipW=0, specW=0, allW=0, mr=0,mg=0,mb=0,mw=0;
+    for(k=0;k<np;k++){
+      var c=C[k], ref=roiYref[k]||0, T1=ref>0?Math.max(ref*1.25,140):1e9, T2=T1+30;
+      var sr=0,sg=0,sb=0,sw=0, cy2=0,cw=0;
+      var ya=Math.max(y0,Math.ceil(c[1]-rad)), yb=Math.min(y1,Math.floor(c[1]+rad));
+      var xa=Math.max(x0,Math.ceil(c[0]-rad)), xb=Math.min(x1,Math.floor(c[0]+rad));
+      for(var y=ya;y<=yb;y++){
+        var dy=y+0.5-c[1];
+        for(var x=xa;x<=xb;x++){
+          var dx=x+0.5-c[0], dd=dx*dx+dy*dy; if(dd>rad*rad) continue;
+          var w=Math.exp(-dd*inv), i=((y-y0)*bw+(x-x0))*4, r=d[i], g=d[i+1], bb=d[i+2], Y=0.299*r+0.587*g+0.114*bb;
+          rawY+=Y; rawN++; allW+=w;
+          if(r>=250||g>=250||bb>=250){ clipW+=w; continue; }
+          cy2+=w*Y; cw+=w;
+          if(!skinPix(r,g,bb)) continue;
+          if(Y>T1){ var f=Y>=T2?0:(T2-Y)/(T2-T1); specW+=w*(1-f); w*=f; if(w<=0) continue; }
+          sr+=w*r; sg+=w*g; sb+=w*bb; sw+=w;
+        }
+      }
+      if(cw) roiYref[k]= ref>0 ? ref*0.9+0.1*(cy2/cw) : cy2/cw;
+      if(sw>0){ out.push([sr/sw,sg/sw,sb/sw,sw]); mr+=sr; mg+=sg; mb+=sb; mw+=sw; }
+      else out.push([0,0,0,0]);
+    }
+    roiStats={rgb:mw?[mr/mw,mg/mw,mb/mw]:[0,0,0], clip:allW?clipW/allW:0, spec:allW?specW/allW:0};
+    lastPatches={c:C, r:rad};
+    return {rois:out, luma:rawN?rawY/rawN:0};
+  }
+
   /* fallback tracker: topmost band of skin in a coarse map */
   function coarseFace(){
     var d; try{ mctx.drawImage(video,0,0,MW,MH); d=mctx.getImageData(0,0,MW,MH).data; }catch(e){ return null; }
@@ -1289,13 +1534,22 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     for(var i=0;i<n;i++){
       var d=(L[i]-euro.x[i])/dt;
       euro.dx[i]+=aD*(d-euro.dx[i]);
-      var fc=0.8+12*Math.abs(euro.dx[i]), a=1/(1+1/(2*Math.PI*fc*dt));
+      var fc=0.35+10*Math.abs(euro.dx[i]), a=1/(1+1/(2*Math.PI*fc*dt));
       euro.x[i]+=a*(L[i]-euro.x[i]);
     }
     return euro.x;
   }
+  /* test hook: emulate a phone's landmark jitter/cadence on the desktop test rig */
+  var rawLm=null, lastJit=0;
+  function jitter(L){
+    var o=new Float32Array(L.length), cx=gauss()*window.__jit.c, cy=gauss()*window.__jit.c, i;
+    for(i=0;i<L.length;i+=2){ o[i]=L[i]+cx+gauss()*window.__jit.i; o[i+1]=L[i+1]+cy+gauss()*window.__jit.i; }
+    return o;
+  }
+  function gauss(){ var u=Math.random()||1e-9, v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
   function acceptLandmarks(L){
     var pn=performance.now();
+    if(window.__jit && L){ rawLm=L; lastJit=pn; L=jitter(L); }
     if(!L){ lastLm=null; euro=null; return; }
     L=smoothLm(L,pn);
     lastLm=L; lastLmAt=pn;
@@ -1351,6 +1605,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
         detMs=detMs*0.8+(performance.now()-t0)*0.2;
         acceptLandmarks(L);
       }
+      if(window.__jit && rawLm && pn-lastJit>60){ acceptLandmarks(rawLm); }
       var hulls=null, tracking=!!(worker||landmarker);
       var fresh=lastLm && (pn-lastLmAt)<1500;
       if(tracking && fresh){
@@ -1372,7 +1627,11 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
         } else { curFace=null; trackMode='none'; }
       } else { trackMode='wait'; }
       lastHulls=hulls;
-      if(hulls){
+      if(hulls && trackMode==='lm'){
+        var sp=samplePatches(lastLm,W,H);
+        if(sp){ s.rois=sp.rois; s.luma=sp.luma; s.fx=curFace?curFace.cx:null; s.fy=curFace?curFace.cy:null; s.fw=curFace?curFace.w:null; }
+        else s.face=false;
+      } else if(hulls){
         var sm=sampleHulls(hulls,true);
         if(sm){ s.rois=sm.rois; s.luma=sm.luma; }
         else s.face=false;
@@ -1398,6 +1657,28 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   }
 
   /* ================= diagnostics (for troubleshooting on a real phone) ================= */
+  /* raw colour averages only — no image leaves the phone unless the user shares this file */
+  function buildDump(){
+    var r2=function(v){ return Math.round(v*100)/100; };
+    return {v:1, when:new Date().toISOString(), ua:navigator.userAgent, mode:mode, dur:DUR,
+      video:[video.videoWidth,video.videoHeight], cam:String(camLocked), camInfo:camInfo, diag:diagEl.textContent,
+      last:window.__cc.last?{bpm:window.__cc.last.bpm,q:window.__cc.last.q,snr:window.__cc.last.snr}:null,
+      groups:PATCH_G,
+      s:samples.map(function(x){ return [r2(x.t*1000)/1000, x.face?1:0, r2(x.luma), Math.round((x.mot||0)*1e5)/1e5,
+        x.fx!=null?Math.round(x.fx*1e4)/1e4:null, x.fy!=null?Math.round(x.fy*1e4)/1e4:null, x.fw!=null?Math.round(x.fw*1e4)/1e4:null,
+        x.noseY!=null?Math.round(x.noseY*1e4)/1e4:null,
+        (x.rois||[]).map(function(q){ return [r2(q[0]),r2(q[1]),r2(q[2]),Math.round(q[3])]; })]; })};
+  }
+  function dumpData(){
+    var o=buildDump();
+    try{
+      var blob=new Blob([JSON.stringify(o)],{type:'application/json'}), a=document.createElement('a'), d=new Date();
+      a.href=URL.createObjectURL(blob);
+      a.download='cc-signal-'+d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'-'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0')+'.json';
+      document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },3000);
+      setStatus('측정 신호 파일을 저장했습니다(다운로드 폴더). 얼굴 영상은 들어 있지 않습니다.');
+    }catch(e){ setStatus('파일 저장에 실패했습니다.','warn'); }
+  }
   function renderDiag(){
     var n=samples.length, t1=n?samples[n-1].t:0, c2=0, f10=0, n10=0, mv=0;
     for(var i=n-1;i>=0;i--){ var d=t1-samples[i].t; if(d<=2) c2++; if(d<=10){ n10++; if(samples[i].face) f10++; mv+=samples[i].mot||0; } }
@@ -1416,6 +1697,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
       '영상: '+(video.videoWidth||0)+'×'+(video.videoHeight||0)+(st.frameRate?' @'+Math.round(st.frameRate):'')+' · 시각정보: '+(hasCapTime?'센서':'화면'),
       '신호: '+(L&&L.ok?('심박 '+Math.round(L.bpm)+' · 신뢰도 '+Math.round(L.q*100)+'% · SNR '+L.snr.toFixed(1)+'dB · 반쪽차 '+(L.split!=null?L.split.toFixed(1):'—')):(L?('분석 불가: '+(L.why||'—')):'대기')),
       '부위: '+reg,
+      '검증: '+(L&&L.ok&&L.fA!=null?('교차 '+Math.round(L.fA)+'/'+Math.round(L.fB)+' · CV '+L.snrCV.toFixed(1)+'dB'):'—')+' · 혈류색 '+(L&&L.pbv?(Math.round(L.pbv.cos*100)+'%'+(L.pbv.ok?' ✓':' ✗')):'—')+' · 패치 '+(L&&L.used?L.used+'/'+L.patches:'—'),
       '브라우저: '+br,
       lastFail?('마지막 실패: '+lastFail):''
     ].filter(Boolean).join('\n');
@@ -1483,10 +1765,29 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   }
 
   /* ================= live analysis ================= */
+  /* the live read-out runs in its own thread so the camera loop never waits on the maths */
+  function initAnalysisWorker(){
+    try{
+      var src=ENGINE_SRC+'\nonmessage=function(e){var r;try{r=CCEngine.analyze(e.data.s,e.data.o);}catch(x){r={ok:false,why:"err"};}postMessage({g:e.data.g,r:r});};';
+      aw=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
+      aw.onmessage=function(ev){ awBusy=false; if(ev.data.g!==awGen||!running) return; liveResult(ev.data.r); };
+      aw.onerror=function(){ aw=null; awBusy=false; };
+    }catch(e){ aw=null; }
+  }
   function runLive(t){
     var start=faceSince||t, have=t-start;
     if(have<6) { setVal(qval,null); live=null; return; }
-    var r=E.analyze(samples,{mode:mode, t0:t-Math.min(10,have), t1:t});
+    var o={mode:mode, t0:t-Math.min(10,have), t1:t, groups:PATCH_G};
+    if(aw){
+      if(awBusy && performance.now()-awSince<4000) return;
+      var sl=[]; for(var i=samples.length-1;i>=0&&samples[i].t>=o.t0-0.3;i--) sl.push(samples[i]); sl.reverse();
+      awBusy=true; awSince=performance.now();
+      try{ aw.postMessage({g:awGen,s:sl,o:o}); }catch(e){ aw=null; awBusy=false; liveResult(E.analyze(samples,o)); }
+      return;
+    }
+    liveResult(E.analyze(samples,o));
+  }
+  function liveResult(r){
     live=r;
     if(!r.ok){ quality=0; qbar.style.width='0'; setVal(qval,null); goodSince=0; bpmHist=[]; return; }
     /* estimates that keep jumping around are not trustworthy yet */
@@ -1558,7 +1859,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     if(!running||measuring) return;
     if(camTuning){ setStatus('카메라 밝기를 얼굴에 맞추는 중입니다. 1~2초 뒤에 다시 눌러 주세요.','warn'); return; }
     cardPanel.hidden=true; irrBanner.hidden=true;
-    measuring=true;
+    measuring=true; extSecs=0;
     var now=performance.now();
     var credit=goodSince?Math.min(DUR-2,(now-goodSince)/1000):0; if(credit<0) credit=0;
     countSecs=Math.max(2,Math.round(DUR-credit));
@@ -1580,11 +1881,26 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     measuring=false; bigCount.classList.remove('on'); btnMeasure.disabled=false; prog.style.width='0';
     var tEnd=samples.length?samples[samples.length-1].t:0;
     /* full requested window (reusing clean pre-roll) vs only the counted part — keep the cleaner */
-    var eFull=E.analyze(samples,{mode:mode,t0:tEnd-DUR,t1:tEnd});
-    var eCnt=E.analyze(samples,{mode:mode,t0:measureStartT,t1:tEnd});
+    var eFull=E.analyze(samples,{mode:mode,t0:tEnd-DUR,t1:tEnd,groups:PATCH_G});
+    var eCnt=E.analyze(samples,{mode:mode,t0:measureStartT,t1:tEnd,groups:PATCH_G});
     var e=eFull;
     if(!e.ok || (eCnt.ok && eCnt.q>e.q+0.08)) e=eCnt;
+    /* everything the camera saw since the face settled (up to 30 s) — more beats, steadier answer */
+    if(mode==='face' && faceSince && tEnd-faceSince>DUR+3){
+      var eLong=E.analyze(samples,{mode:mode,t0:Math.max(faceSince+1,tEnd-30),t1:tEnd,groups:PATCH_G});
+      if(eLong.ok && (!e.ok || eLong.q>=e.q-0.05)) e=eLong;
+    }
     window.__cc.last=e;
+    /* weak but plausible signal: keep collecting a little longer instead of failing outright */
+    if((!e.ok||e.q<0.45) && extSecs<15){
+      var W2=samples.slice(-FS*5), fc=0; for(var z=0;z<W2.length;z++) if(W2[z].face) fc++;
+      if(W2.length && fc/W2.length>=0.8){
+        extSecs+=5; measuring=true; countSecs=5; measureEnd=performance.now()+5000;
+        bigCount.textContent='5'; bigCount.classList.add('on'); btnMeasure.disabled=true;
+        setStatus('신호를 조금 더 모으고 있습니다. 그대로 계세요 (+'+extSecs+'초)');
+        tick(); return;
+      }
+    }
     if(!e.ok||e.q<0.2){
       var why=failReason(e);
       lastFail=why; holdUntil=performance.now()+10000; if(!diagWrap.open) diagWrap.open=true; renderDiag();
@@ -1594,7 +1910,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
     var name=(who.value||'').trim(), b=baselineFor(name);
     var r={
       time:new Date(), mode:mode, who:name,
-      how: mode==='finger'?'손가락':((worker||landmarker)?'얼굴 · 3부위 정밀':'얼굴 · 간이'),
+      how: mode==='finger'?'손가락':((worker||landmarker)?'얼굴 · 27지점 정밀':'얼굴 · 간이'),
       bpm:Math.round(e.bpm), rpm:e.rpm?Math.round(e.rpm):null,
       rmssd:e.rmssd?Math.round(e.rmssd):null, stress:e.stress!=null?e.stress:null,
       irregular:!!e.irregular, q:e.q, dur:e.dur, sig:e.sig,
@@ -1779,7 +2095,7 @@ footer{font-size:11.5px;color:var(--ink-3);line-height:1.65;padding:0 2px}
   btnAgain.addEventListener('click',function(){ cardPanel.hidden=true; measure(); });
   who.addEventListener('change',function(){ showDev(parseFloat(bpmEl.textContent)); });
   document.addEventListener('visibilitychange',function(){ if(!document.hidden&&running) keepAwake(); });
-  window.__cc={get state(){ return {engine:engineState, running:running, live:live, guide:guideState, camLocked:camLocked, n:samples.length, detMs:detMs}; }, last:null};
+  window.__cc={dump:function(){ return buildDump(); }, get state(){ return {engine:engineState, running:running, live:live, guide:guideState, camLocked:camLocked, n:samples.length, detMs:detMs}; }, last:null};
   drawWave();
 })();
 </script>
