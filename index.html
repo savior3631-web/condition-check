@@ -1288,19 +1288,20 @@ var ENGINE_SRC="/* =============================================================
       if(!running||mode!=='face'||!track){ camTuning=false; return; }
       var Y=recentLuma(8);
       if(!Y){ setTimeout(step,300); return; }
-      if((Y>=105&&Y<=170)||it>=7||(!canManual&&!canEV)) return finishTune(Y>=95&&Y<=185, canManual, caps);
+      if((Y>=105&&Y<=170)||it>=7||(!canManual&&!canEV)) return finishTune(Y>=95&&Y<=185, canManual&&it>0, caps);
       it++;
       var f=lin(140)/lin(Y), p;
       if(canManual){
-        /* lower ISO first (less noise), then exposure time */
-        var iso2=clampN(iso*f,caps.iso.min,caps.iso.max);
-        if(caps.iso.step) iso2=Math.max(caps.iso.min,Math.round(iso2/caps.iso.step)*caps.iso.step);
-        var rem=f*iso/Math.max(1,iso2), et2=et;
-        if(Math.abs(rem-1)>0.08){
-          et2=et*rem;
-          /* keep exposure a multiple of 1/120 s (60 Hz mains) so room lights don't flicker into the signal */
-          var q=83.333; if(et2>=q) et2=Math.round(et2/q)*q;
-          et2=clampN(et2,caps.exposureTime.min,caps.exposureTime.max);
+        /* keep exposure a multiple of 1/120 s (60 Hz mains) so room lights don't flicker into the signal;
+           never longer than one frame (1/30 s) or the frame rate drops */
+        var q=83.333, etMax=Math.min(caps.exposureTime.max,333.4);
+        var snap=function(v){ if(v>=q) v=Math.max(q,Math.floor(v/q+0.25)*q); return clampN(v,caps.exposureTime.min,etMax); };
+        var isoQ=function(v){ v=clampN(v,caps.iso.min,caps.iso.max); if(caps.iso.step) v=Math.max(caps.iso.min,Math.round(v/caps.iso.step)*caps.iso.step); return v; };
+        var et2, iso2;
+        if(f>1){ /* too dark: longer exposure first (cleaner), then gain */
+          et2=snap(et*f); iso2=isoQ(iso*f*et/Math.max(1,et2));
+        } else { /* too bright: less gain first, then shorter exposure */
+          iso2=isoQ(iso*f); et2=snap(et*f*iso/Math.max(1,iso2));
         }
         iso=iso2; et=et2;
         p=track.applyConstraints({advanced:[{exposureMode:'manual',exposureTime:et,iso:iso}]});
@@ -1326,19 +1327,28 @@ var ENGINE_SRC="/* =============================================================
       camLockKeys = Object.keys(adv).concat(manualDone?['exposureTime','iso']:[]).join(',');
       /* the picture just changed — start collecting the pulse again from here */
       restartSignal();
-      lockBaseLuma=recentLuma(20);
-      setTimeout(verifyLock,1500);
+      lockBaseLuma=0; setTimeout(function(){ lockBaseLuma=recentLuma(20); },1200);
     };
     if(Object.keys(adv).length) track.applyConstraints({advanced:[adv]}).then(done,done); else done();
   }
-  function verifyLock(){
-    if(camLocked!==true&&camLocked!=='range') return;
-    var Y=recentLuma(15);
-    if(Y && (Y<85||Y>200)){
-      try{ track.applyConstraints({advanced:[{exposureMode:'continuous',whiteBalanceMode:'continuous'}]}); }catch(e){}
-      camLocked='reverted'; restartSignal();
+  /* brightness watchdog: light changes, people move — if the face drifts out of range, re-tune */
+  var retunes=[], badLuma=0;
+  function verifyLock(){}
+  function exposureWatch(){
+    if(!running||mode!=='face'||camTuning||!curFace||curFace.coarse) { badLuma=0; return; }
+    if(camLocked!==true&&camLocked!=='range'&&camLocked!=='reverted') return;
+    var Y=recentLuma(20);
+    /* if the last tune already hit the camera's limits, only retry when the light has really changed */
+    var moved = camLocked===true || !lockBaseLuma || Math.abs(Y-lockBaseLuma)/lockBaseLuma>0.25;
+    if(Y && (Y<95||Y>185) && moved) badLuma++; else badLuma=0;
+    var now=performance.now();
+    retunes=retunes.filter(function(t){ return now-t<60000; });
+    if(badLuma>=2 && retunes.length<4){
+      badLuma=0; retunes.push(now);
+      camLocked=false; tuneAndLock();
     }
   }
+  setInterval(exposureWatch,1000);
   function restartSignal(){ awGen++; samples.length=0; faceSince=0; bpmHist=[]; live=null; goodSince=0; quality=0; roiYref=[]; }
   function lockCamera(){ tuneAndLock(); }
   var camLockKeys='';
@@ -1550,7 +1560,10 @@ var ENGINE_SRC="/* =============================================================
   function acceptLandmarks(L){
     var pn=performance.now();
     if(window.__jit && L){ rawLm=L; lastJit=pn; L=jitter(L); }
-    if(!L){ lastLm=null; euro=null; return; }
+    if(!L){
+      if(lastLm && pn-lastLmAt<700) return;      // a missed detection or two: keep measuring on the last mesh
+      lastLm=null; euro=null; return;
+    }
     L=smoothLm(L,pn);
     lastLm=L; lastLmAt=pn;
     var lx=L[234*2], rx=L[454*2], nx=L[1*2], ny=L[1*2+1];
@@ -1692,7 +1705,7 @@ var ENGINE_SRC="/* =============================================================
     diagEl.textContent=[
       '엔진: '+eng+' · 추적: '+tm+' · 인식 '+Math.round(detMs)+'ms',
       '프레임: '+(c2/2).toFixed(1)+'fps · 얼굴 '+(n10?Math.round(100*f10/n10):0)+'% · 움직임 '+(n10?(mv/n10).toFixed(4):'—'),
-      '밝기: '+(n?Math.round(samples[n-1].luma):'—')+' (적정 110~165) · 카메라: '+lk+(camInfo?' · '+camInfo:''),
+      '밝기: '+(n?Math.round(recentLuma(20)):'—')+' (적정 110~165) · 카메라: '+lk+(camInfo?' · '+camInfo:''),
       '피부: RGB '+roiStats.rgb.map(function(v){return Math.round(v);}).join('/')+' · 포화 '+Math.round(roiStats.clip*100)+'% · 반사 '+Math.round(roiStats.spec*100)+'%',
       '영상: '+(video.videoWidth||0)+'×'+(video.videoHeight||0)+(st.frameRate?' @'+Math.round(st.frameRate):'')+' · 시각정보: '+(hasCapTime?'센서':'화면'),
       '신호: '+(L&&L.ok?('심박 '+Math.round(L.bpm)+' · 신뢰도 '+Math.round(L.q*100)+'% · SNR '+L.snr.toFixed(1)+'dB · 반쪽차 '+(L.split!=null?L.split.toFixed(1):'—')):(L?('분석 불가: '+(L.why||'—')):'대기')),
@@ -1720,9 +1733,9 @@ var ENGINE_SRC="/* =============================================================
       else if(Math.abs(f.cx-0.5)>0.2||f.cy<0.2||f.cy>0.72) g={k:'얼굴을 화면 가운데로 맞춰 주세요',warn:true};
       else if(Math.abs(f.yaw)>0.13) g={k:'정면을 바라봐 주세요',warn:true};
       else if(camTuning) g={k:'카메라 밝기를 얼굴에 맞추는 중…'};
-      else if(s.luma&&s.luma<70) g={k:'너무 어둡습니다 — 더 밝은 곳에서',warn:true};
-      else if(s.luma>195) g={k:'얼굴이 너무 밝습니다 — 조명 바로 아래를 피해 주세요',warn:true};
-      else if(recentMotion()>0.012) g={k:'움직이지 말고 잠시 멈춰 주세요',warn:true};
+      else if(recentLuma(15)&&recentLuma(15)<80) g={k:'얼굴이 어둡습니다 — 폰을 눈높이로 올리고 빛이 얼굴 정면에 오게',warn:true};
+      else if(recentLuma(15)>195) g={k:'얼굴이 너무 밝습니다 — 조명 바로 아래를 피해 주세요',warn:true};
+      else if(recentMotion()>0.009) g={k:'폰이 흔들립니다 — 팔꿈치를 몸에 붙이거나 폰을 받쳐 주세요',warn:true};
       else if(live&&live.ok&&live.q>=0.45) g={k:'측정 준비 완료',ok:true};
       else g={k:'신호를 모으는 중… 편하게 호흡하세요'};
       /* once the framing is right, freeze exposure so auto-brightness can't pollute the signal */
@@ -1935,7 +1948,7 @@ var ENGINE_SRC="/* =============================================================
     if(e.why==='noface'||face/n<0.6) return '얼굴이 '+Math.round(100*face/n)+'%만 인식됐습니다. 얼굴 전체가 화면 안에 들어오게 하고, 정면을 보세요.';
     if(dark/n>0.4) return '화면이 어두워 맥박 신호가 약했습니다. 더 밝은 곳이나 창가를 향해 다시 측정하세요.';
     if(mv/n>0.25) return '움직임이 많아 신호가 흔들렸습니다. 폰을 받치고 머리를 고정한 채 다시 측정하세요.';
-    return '맥박 신호가 약했습니다(신호 품질 '+(e.snr!=null?e.snr.toFixed(1)+'dB':'—')+'). 조명을 얼굴 정면으로 두고, 조금 더 가까이에서 다시 측정하세요.';
+    return '맥박 신호가 약했습니다(신호 품질 '+(e.snr!=null?e.snr.toFixed(1)+'dB':'—')+'). 폰을 눈높이에 받치고 빛이 얼굴 정면에 오게 해서 다시 측정하세요. 급할 때는 \'손끝\' 측정이 가장 확실합니다.';
   }
   function verdict(r){
     if(r.q<0.45) return {k:'재측정 필요',c:'bad',why:'신호 품질이 낮아 값을 신뢰할 수 없습니다'};
