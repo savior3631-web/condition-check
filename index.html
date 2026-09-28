@@ -1136,7 +1136,7 @@ var ENGINE_SRC="/* =============================================================
   var stream=null, track=null, torchOn=false, wake=null, camLocked=false, lockTimer=0;
   var running=false, samples=[], rafId=0, lastTs=0, lastDetect=0, detMs=12, frameNo=0;
   var lastLm=null, lastLmAt=0, lastHulls=null, prevNose=null, prevNoseAt=0, curFace=null, lastMot=0;
-  var WW=320, work=document.createElement('canvas'), wctx=work.getContext('2d',{willReadFrequently:true});
+  var WW=480, work=document.createElement('canvas'), wctx=work.getContext('2d',{willReadFrequently:true});
   var MW=16, MH=22, mapc=document.createElement('canvas'); mapc.width=MW; mapc.height=MH;
   var mctx=mapc.getContext('2d',{willReadFrequently:true});
   var live=null, bpmHist=[], quality=0, goodSince=0, countSecs=10;
@@ -1660,7 +1660,6 @@ var ENGINE_SRC="/* =============================================================
     drawOverlay();
     var have=samples.length?t-samples[0].t:0;
     liveTxt.textContent=have.toFixed(1)+'초';
-    if(measuring) prog.style.width=Math.min(100,100*(1-(measureEnd-performance.now())/(countSecs*1000)))+'%';
     var pn=performance.now();
     if(pn-lastLive>650){ lastLive=pn; runLive(t); }
     if(pn-lastWave>90){ lastWave=pn; drawWave(); }
@@ -1728,7 +1727,7 @@ var ENGINE_SRC="/* =============================================================
       var f=curFace;
       if(!f) g={k:'얼굴이 보이지 않습니다 — 화면 안으로 들어와 주세요',warn:true};
       else if(f.coarse&&(worker||landmarker)) g={k:'얼굴 인식이 불안정합니다 — 정면에서 밝게',warn:true};
-      else if(f.w<0.30) g={k:'조금 더 가까이 와 주세요',warn:true};
+      else if(f.w<0.22) g={k:'조금 더 가까이 와 주세요',warn:true};
       else if(f.w>0.82) g={k:'조금 뒤로 물러나 주세요',warn:true};
       else if(Math.abs(f.cx-0.5)>0.2||f.cy<0.2||f.cy>0.72) g={k:'얼굴을 화면 가운데로 맞춰 주세요',warn:true};
       else if(Math.abs(f.yaw)>0.13) g={k:'정면을 바라봐 주세요',warn:true};
@@ -1740,7 +1739,7 @@ var ENGINE_SRC="/* =============================================================
       else g={k:'신호를 모으는 중… 편하게 호흡하세요'};
       /* once the framing is right, freeze exposure so auto-brightness can't pollute the signal */
       /* exposure is tuned as soon as the face is framed — brightness itself is what it fixes */
-      var framed = f && !f.coarse && f.w>=0.30 && f.w<=0.82 && Math.abs(f.cx-0.5)<=0.2 && Math.abs(f.yaw)<=0.13 && recentMotion()<=0.012;
+      var framed = f && !f.coarse && f.w>=0.22 && f.w<=0.82 && Math.abs(f.cx-0.5)<=0.2 && Math.abs(f.yaw)<=0.13 && recentMotion()<=0.012;
       if(framed && !camLocked && !camTuning && !lockTimer) lockTimer=setTimeout(function(){ lockTimer=0; lockCamera(); },900);
     }
     hint.textContent=g.k;
@@ -1868,30 +1867,25 @@ var ENGINE_SRC="/* =============================================================
   }
 
   /* ================= measurement ================= */
+  /* one continuous measurement: finishes early once the pulse is clearly locked,
+     keeps collecting quietly (no second countdown) when the signal is still weak */
+  var mT0=0, lastEval=0, evalHist=[], lastE=null;
   function measure(){
     if(!running||measuring) return;
     if(camTuning){ setStatus('카메라 밝기를 얼굴에 맞추는 중입니다. 1~2초 뒤에 다시 눌러 주세요.','warn'); return; }
     cardPanel.hidden=true; irrBanner.hidden=true;
-    measuring=true; extSecs=0;
+    measuring=true; extSecs=0; evalHist=[]; lastE=null; lastEval=0;
     var now=performance.now();
-    var credit=goodSince?Math.min(DUR-2,(now-goodSince)/1000):0; if(credit<0) credit=0;
-    countSecs=Math.max(2,Math.round(DUR-credit));
+    var credit=goodSince?Math.min(DUR-4,(now-goodSince)/1000):0; if(credit<0) credit=0;
+    countSecs=Math.max(4,Math.round(DUR-credit));
     measureStartT=samples.length?samples[samples.length-1].t:nowS();
-    measureEnd=now+countSecs*1000;
+    mT0=now; measureEnd=now+countSecs*1000;
     bigCount.textContent=countSecs; bigCount.classList.add('on');
     btnMeasure.disabled=true; prog.style.width='0';
-    setStatus(credit>=1 ? '이미 '+Math.round(credit)+'초가 모여 있어 '+countSecs+'초만 더 재면 됩니다. 움직이지 마세요.' : '측정 중입니다. 움직이지 마세요.');
+    setStatus('측정 중입니다. 움직이지 마세요. 맥박이 확인되면 자동으로 끝납니다.');
     tick();
   }
-  function tick(){
-    if(!measuring) return;
-    var left=Math.max(0,Math.ceil((measureEnd-performance.now())/1000));
-    bigCount.textContent=left;
-    if(left<=0){ finish(); return; }
-    setTimeout(tick,200);
-  }
-  function finish(){
-    measuring=false; bigCount.classList.remove('on'); btnMeasure.disabled=false; prog.style.width='0';
+  function evalNow(){
     var tEnd=samples.length?samples[samples.length-1].t:0;
     /* full requested window (reusing clean pre-roll) vs only the counted part — keep the cleaner */
     var eFull=E.analyze(samples,{mode:mode,t0:tEnd-DUR,t1:tEnd,groups:PATCH_G});
@@ -1903,17 +1897,31 @@ var ENGINE_SRC="/* =============================================================
       var eLong=E.analyze(samples,{mode:mode,t0:Math.max(faceSince+1,tEnd-30),t1:tEnd,groups:PATCH_G});
       if(eLong.ok && (!e.ok || eLong.q>=e.q-0.05)) e=eLong;
     }
-    window.__cc.last=e;
-    /* weak but plausible signal: keep collecting a little longer instead of failing outright */
-    if((!e.ok||e.q<0.45) && extSecs<15){
-      var W2=samples.slice(-FS*5), fc=0; for(var z=0;z<W2.length;z++) if(W2[z].face) fc++;
-      if(W2.length && fc/W2.length>=0.8){
-        extSecs+=5; measuring=true; countSecs=5; measureEnd=performance.now()+5000;
-        bigCount.textContent='5'; bigCount.classList.add('on'); btnMeasure.disabled=true;
-        setStatus('신호를 조금 더 모으고 있습니다. 그대로 계세요 (+'+extSecs+'초)');
-        tick(); return;
-      }
+    return e;
+  }
+  function tick(){
+    if(!measuring) return;
+    var now=performance.now(), el=(now-mT0)/1000;
+    var left=Math.max(0,Math.ceil(countSecs-el));
+    bigCount.textContent = left>0 ? left : '···';
+    prog.style.width=Math.min(96,100*el/Math.max(countSecs,1)*(el<=countSecs?1:0)+(el>countSecs?96:0))+'%';
+    if(now-lastEval>=1000 && el>=3){
+      lastEval=now;
+      var e=evalNow(); lastE=e;
+      if(e.ok&&e.q>=0.3){ evalHist.push(e.bpm); if(evalHist.length>6) evalHist.shift(); }
+      var tail=evalHist.slice(-3), stable=tail.length>=3 && (Math.max.apply(null,tail)-Math.min.apply(null,tail))<=4;
+      var early = DUR<30 && e.ok && e.q>=0.6 && stable && e.dur>=8 && el>=4;
+      var W2=samples.slice(-FS*3), fc=0; for(var z=0;z<W2.length;z++) if(W2[z].face) fc++;
+      var lost = !W2.length || fc/W2.length<0.5;
+      if(early || (el>=countSecs && ((e.ok&&e.q>=0.45) || el>=countSecs+15 || lost))){ finish(e); return; }
+      if(el>=countSecs){ extSecs=Math.round(el-countSecs); setStatus('맥박 신호를 조금 더 모으고 있습니다. 그대로 계세요… (최대 '+Math.max(1,Math.round(countSecs+15-el))+'초)'); }
     }
+    setTimeout(tick,200);
+  }
+  function finish(e){
+    measuring=false; bigCount.classList.remove('on'); btnMeasure.disabled=false; prog.style.width='0';
+    if(!e) e=evalNow();
+    window.__cc.last=e;
     if(!e.ok||e.q<0.2){
       var why=failReason(e);
       lastFail=why; holdUntil=performance.now()+10000; if(!diagWrap.open) diagWrap.open=true; renderDiag();
